@@ -2,7 +2,7 @@
 
 Small data exploration project.
 
-Features:
+Current Features:
 * Explore hashtag usage over time
 * _[TODO]_ Explore Tweet similarities over time (VSM)
 * _[TODO]_ Explore Tweet similarities over time (Embeddings)
