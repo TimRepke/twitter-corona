@@ -13,6 +13,7 @@ Current Features:
 Small playground to get a feel for [streamlit](https://docs.streamlit.io/)
 ```bash
 # To start, run
+cd hashtags/
 streamlit run hashtags.py
 ```
 Open http://localhost:8501/ (or whatever port is assigned) to see the following:

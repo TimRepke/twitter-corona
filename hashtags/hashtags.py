@@ -1,37 +1,10 @@
-import re
-from datetime import datetime
-from dataclasses import dataclass, field
 import sqlite3
-import os
-from itertools import chain
-from functools import reduce
-from collections import defaultdict, Counter
 import pandas as pd
 import streamlit as st
-from matplotlib import pyplot as plt
-import pickle
-import scipy.spatial.distance
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from typing import Union
-import numpy as np
 import plotly.graph_objs as go
 import plotly.express as px
-from plotly.offline.offline import plot as off_plot
-from utilities import Tweets, Tweet, GroupedHashtags
-
-
-def pyplot_similarity_matrix(sim):
-    fig = plt.figure(figsize=(15, 15))
-    ax = fig.add_subplot(1, 1, 1)
-    plt.pcolormesh(sim, cmap=plt.cm.ocean)
-    plt.colorbar()
-    fig.patch.set_facecolor('#FFFFFF')
-    return fig
-
-
-def plotly_similarity_matrix(sim, labels, filename):
-    trace = go.Heatmap(z=sim, x=labels, y=labels)
-    off_plot([trace], filename=filename, auto_play=False, auto_open=False)
+from utilities import Tweets, GroupedHashtags
 
 
 @st.cache(hash_funcs={sqlite3.Cursor: lambda x: None}, allow_output_mutation=True)
@@ -44,7 +17,7 @@ if __name__ == '__main__':
 
     with st.expander('Settings'):
         num_tweets = st.slider('Num Tweets', min_value=50, max_value=100000, value=100000)
-        tweets = load_tweets('identifier.sqlite', num_tweets)
+        tweets = load_tweets('../data/identifier.sqlite', num_tweets)
 
         st.subheader('Vectoriser Settings')
         vector_cols = st.columns(4)

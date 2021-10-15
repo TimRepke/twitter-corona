@@ -1,20 +1,13 @@
 import re
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import sqlite3
-import os
-from itertools import chain
-from functools import reduce
 from collections import defaultdict, Counter
-from matplotlib import pyplot as plt
-import pickle
 import scipy.spatial.distance
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from typing import Union, Literal
 import pandas as pd
 import numpy as np
-import plotly.graph_objs as go
-from plotly.offline.offline import plot as off_plot
 
 PATTERN_URL = r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))';
 PATTERN_HASHTAG = r'#[a-zA-Z0-9_]+'
@@ -145,7 +138,7 @@ class GroupedHashtags:
         if least_common:
             indices = np.asarray(np.argsort(self.vectors.todense(), axis=1)[:, :top_n])
         else:
-            indices = np.asarray(np.argsort(self.vectors.todense(), axis=1)[:, -top_n:])
+            indices = np.flip(np.asarray(np.argsort(self.vectors.todense(), axis=1)[:, -top_n:]), axis=1)
 
         token_value_pairs = [
             [('#' + self.vocab[ind], self.vectors[row_i, ind]) for ind in row]
