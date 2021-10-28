@@ -9,6 +9,8 @@ Current Features:
 * _[TODO]_ Some fun interactive UMAP Vis
 * _[TODO]_ Some fun AlignedUMAP Animation
 
+Note: May require Python 3.9+
+
 ### Hashtags
 Small playground to get a feel for [streamlit](https://docs.streamlit.io/)
 ```bash

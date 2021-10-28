@@ -1,10 +1,13 @@
+import datetime
 import sqlite3
 import pandas as pd
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 import plotly.graph_objs as go
 import plotly.express as px
-from utilities import Tweets, GroupedHashtags
+
+from utils.tweets import Tweets
+from hashtags.utilities import GroupedHashtags
 
 
 @st.cache(hash_funcs={sqlite3.Cursor: lambda x: None}, allow_output_mutation=True)
@@ -17,7 +20,7 @@ if __name__ == '__main__':
 
     with st.expander('Settings'):
         num_tweets = st.slider('Num Tweets', min_value=50, max_value=100000, value=100000)
-        tweets = load_tweets('../data/identifier.sqlite', num_tweets)
+        tweets = load_tweets('data/identifier.sqlite', num_tweets)
 
         st.subheader('Vectoriser Settings')
         vector_cols = st.columns(4)
@@ -65,14 +68,29 @@ if __name__ == '__main__':
     # small hack (add prefix) so plotly doesn't try to interpret this as a date format
     xy_labels = [f'd:{g}' for g in grouped_hashtags.keys]
 
-    fig = go.Figure(go.Heatmap(z=group_similarities, x=xy_labels, y=xy_labels, hoverinfo='text',
-                               text=[[
-                                   f"""
+    events = [
+        (datetime.date(year=2017, month=1, day=20), 'Donald Trump'),  # Trump inauguration as president
+        (datetime.date(year=2018, month=8, day=20), 'Greta'),  # Greta Thunberg started her strike
+        (datetime.date(year=2019, month=9, day=1), 'Australian Bushfires'),  # out-of-control fires sprung up
+        (datetime.date(year=2019, month=12, day=24), 'First Covid Case'),  # First patient in Wuhan Hospital
+        (datetime.date(year=2020, month=3, day=11), 'Declared Pandemic'),  # WHO declared COVID-19 as pandemic
+        (datetime.date(year=2020, month=12, day=27), 'Vaccine Rollout'),  # EU officially began vaccine rollout
+    ]
+    events = [{'date': dt,
+               'group': dt.strftime(grouping),
+               'group_idx': grouped_hashtags.keys.index(dt.strftime(grouping)),
+               'text': txt}
+              for dt, txt in events]
+
+    fig = go.Figure([go.Heatmap(z=group_similarities, x=xy_labels, y=xy_labels, hoverinfo='text',
+                                text=[[
+                                    f"""
                                    {gi}: {', '.join(li)} <br>
                                    {gj}: {', '.join(lj)}
                                     """
-                                   for gi, li in mc]
-                                   for gj, lj in mc]),
+                                    for gi, li in mc]
+                                    for gj, lj in mc]),
+                     ],
                     layout=go.Layout(
                         width=600, height=600,
                         xaxis=dict(scaleanchor='y', constrain='domain', constraintoward='center'),
@@ -81,6 +99,13 @@ if __name__ == '__main__':
     # fig.for_each_trace(lambda trace: trace.update(hovertext='d'))
     fig.update_yaxes(autorange=True, tickformat=grouping)
     fig.update_xaxes(tickformat=grouping)
+    for event in events:
+        fig.add_hline(y=event['group_idx'],
+                      line_dash="dot",
+                      annotation_text=event['text'],
+                      annotation_position="bottom right",
+                      annotation_font_size=14,
+                      annotation_font_color="blue")
     st.plotly_chart(fig, use_container_width=True)
 
     top_tags = grouped_hashtags.most_common(top_n=1, include_count=False, include_hashtag=True,
