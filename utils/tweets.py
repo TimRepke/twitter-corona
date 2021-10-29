@@ -15,6 +15,7 @@ PATTERN_MENTION = re.compile(r'@[a-zA-Z0-9_]+')
 PATTERN_NON_ALPH_NUM = re.compile(r'[^a-zA-Z0-9 ]')
 PATTERN_MULTISPACE = re.compile(r'\s+')
 
+
 @dataclass
 class Tweet:
     id: int
@@ -105,6 +106,9 @@ class Tweets:
         tweets_d = fetchall_dict(self.cursor)
         self.tweets = [process_tweet(tweet, remove_hashtags, remove_urls, remove_mentions, remove_nonals)
                        for tweet in tweets_d]
+
+    def __len__(self):
+        return len(self.tweets)
 
     def groupby_date(self, fmt) -> dict[list]:
         ret = defaultdict(list)
