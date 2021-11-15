@@ -11,8 +11,8 @@ from hashtags.utilities import GroupedHashtags
 
 
 @st.cache(hash_funcs={sqlite3.Cursor: lambda x: None}, allow_output_mutation=True)
-def load_tweets(db_file, limit: int) -> Tweets:
-    return Tweets(db_file=db_file, limit=limit)
+def load_tweets(db_file=None, filename=None, limit: int=None) -> Tweets:
+    return Tweets(db_file=db_file, filename=filename, limit=limit)
 
 
 if __name__ == '__main__':
@@ -20,7 +20,8 @@ if __name__ == '__main__':
 
     with st.expander('Settings'):
         num_tweets = st.slider('Num Tweets', min_value=50, max_value=100000, value=100000)
-        tweets = load_tweets('data/identifier.sqlite', num_tweets)
+        # tweets = load_tweets('data/identifier.sqlite', num_tweets)
+        tweets = load_tweets(filename='data/geoengineering_tweets_sentop4_full.jsonl', limit=num_tweets)
 
         st.subheader('Vectoriser Settings')
         vector_cols = st.columns(4)
@@ -99,13 +100,13 @@ if __name__ == '__main__':
     # fig.for_each_trace(lambda trace: trace.update(hovertext='d'))
     fig.update_yaxes(autorange=True, tickformat=grouping)
     fig.update_xaxes(tickformat=grouping)
-    for event in events:
-        fig.add_hline(y=event['group_idx'],
-                      line_dash="dot",
-                      annotation_text=event['text'],
-                      annotation_position="bottom right",
-                      annotation_font_size=14,
-                      annotation_font_color="blue")
+    # for event in events:
+    #     fig.add_hline(y=event['group_idx'],
+    #                   line_dash="dot",
+    #                   annotation_text=event['text'],
+    #                   annotation_position="bottom right",
+    #                   annotation_font_size=14,
+    #                   annotation_font_color="blue")
     st.plotly_chart(fig, use_container_width=True)
 
     top_tags = grouped_hashtags.most_common(top_n=1, include_count=False, include_hashtag=True,
@@ -121,8 +122,8 @@ if __name__ == '__main__':
     fig = px.line(tag_freq, x='group', y=top_tags)
     st.plotly_chart(fig)
 
-    st.header('Tweet Histogram')
-    res = tweets.histogram(grouping)
-    mx = max([r['freq'] for r in res])
-    fig = px.bar(res, x='grp', y='freq', range_y=(0, mx + (mx * 0.02)))
-    st.plotly_chart(fig)
+    # st.header('Tweet Histogram')
+    # res = tweets.histogram(grouping)
+    # mx = max([r['freq'] for r in res])
+    # fig = px.bar(res, x='grp', y='freq', range_y=(0, mx + (mx * 0.02)))
+    # st.plotly_chart(fig)

@@ -156,10 +156,15 @@ class FrankenTopic:
                     i += 1
                 else:
                     labels[self.labels == (cluster - 1)] = 0
-            self.labels = labels
-            print(f'Now left with {i} clusters.')
 
-    def fit(self, tweets: Tweets, embeddings: np.ndarray):
+            # in case no clusters were dropped, shift all back again
+            if np.max(labels) == len(np.unique(labels)):
+                labels = labels - 1
+
+            self.labels = labels
+            print(f'Now left with {len(np.unique(labels))} clusters.')
+
+    def fit(self, tweets: list[str], embeddings: np.ndarray):
         if self.layout_cache_file is not None and os.path.isfile(self.layout_cache_file):
             print('Loading cached layout...')
             self.layout = np.load(self.layout_cache_file)
@@ -189,7 +194,7 @@ class FrankenTopic:
 
         print('Grouping tweets...')
         grouped_texts = [
-            [tweets.tweets[i].clean_text for i in np.argwhere(self.labels == label).reshape(-1, )]
+            [tweets[i] for i in np.argwhere(self.labels == label).reshape(-1, )]
             for label in np.unique(self.labels)
         ]
 
@@ -210,7 +215,7 @@ class FrankenTopic:
 
         topics_tfidf = self.get_top_n_tfidf(self.n_candidates)
         topics_mmr = []
-        print('Improving topics keywords...')
+        print('Improving topic keywords...')
         embedder = self.emb_backend(self.emb_model)
         for topic in topics_tfidf:
             words = [w[0] for w in topic]

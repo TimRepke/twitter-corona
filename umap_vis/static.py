@@ -60,7 +60,7 @@ if __name__ == '__main__':
         emb_model=embedding_model,
         cache_layout=f'data/layout_{limit}.npy'
     )
-    topic_model.fit(tweets, embeddings)
+    topic_model.fit([t.clean_text for t in tweets.tweets], embeddings)
 
     tfidf_topics = topic_model.get_top_n_tfidf(20)
     mmr_topics = topic_model.get_top_n_mmr(20)

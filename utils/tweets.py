@@ -1,4 +1,5 @@
 import re
+import json
 from datetime import datetime
 from dataclasses import dataclass
 import sqlite3
@@ -74,6 +75,7 @@ def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True,
 
 
 def s2time(s):
+    s = s.replace('T', ' ')
     return datetime.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
 
 
@@ -82,8 +84,8 @@ def process_tweet(t: dict, remove_hashtags=True, remove_urls=True,
     s = t['text']
 
     return Tweet(
-        id=t['id'],
-        uid=t['author_id'],
+        id=t.get('id', 1),
+        uid=t.get('author_id', 1),
         date=s2time(t['created_at']),
         text=s,
         clean_text=clean_tweet(s, remove_hashtags, remove_urls, remove_mentions, remove_nonals),
@@ -94,16 +96,29 @@ def process_tweet(t: dict, remove_hashtags=True, remove_urls=True,
 
 
 class Tweets:
-    def __init__(self, db_file, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True,
+    def __init__(self, db_file=None, filename=None,
+                 remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True,
                  limit: int = None):
-        self.limit = f'LIMIT {limit}' if limit is not None else ''
 
-        connection = sqlite3.connect(db_file)
-        self.cursor = connection.cursor()
+        assert db_file or filename
 
-        print('Loading tweets...')
-        self.cursor.execute(f'SELECT * FROM pooled_sample_tweets {self.limit};')
-        tweets_d = fetchall_dict(self.cursor)
+        if db_file is not None:
+            self.limit = f'LIMIT {limit}' if limit is not None else ''
+
+            connection = sqlite3.connect(db_file)
+            self.cursor = connection.cursor()
+
+            print('Loading tweets...')
+            self.cursor.execute(f'SELECT * FROM pooled_sample_tweets {self.limit};')
+            tweets_d = fetchall_dict(self.cursor)
+        else:
+            with open(filename) as f:
+                num_lines = sum(1 for _ in f)
+            skip_lines = max(int(num_lines / limit), 1)
+            with open(filename) as f:
+                tweets_d = [json.loads(l) for i, l in enumerate(f) if (i % skip_lines) == 0]
+                tweets_d = [t for t in tweets_d if t['text'] is not None and len(t['text']) > 5]
+
         self.tweets = [process_tweet(tweet, remove_hashtags, remove_urls, remove_mentions, remove_nonals)
                        for tweet in tweets_d]
 

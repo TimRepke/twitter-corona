@@ -71,11 +71,11 @@ MODELS = {
         'model': 'monologg/bert-base-cased-goemotions-ekman',
         'labels': ['anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise']
     },
-    'nlptown-sentiment': {
-        # https://huggingface.co/nlptown/bert-base-multilingual-uncased-sentiment/blob/main/config.json
-        'model': 'nlptown/bert-base-multilingual-uncased-sentiment',
-        'labels': ['1 star', '2 stars', '3 stars', '4 stars', '5 stars']
-    },
+    # 'nlptown-sentiment': {
+    #     # https://huggingface.co/nlptown/bert-base-multilingual-uncased-sentiment/blob/main/config.json
+    #     'model': 'nlptown/bert-base-multilingual-uncased-sentiment',
+    #     'labels': ['1 star', '2 stars', '3 stars', '4 stars', '5 stars']
+    # },
     'bertweet-sentiment': {
         # https://huggingface.co/finiteautomata/bertweet-base-sentiment-analysis
         'model': 'finiteautomata/bertweet-base-sentiment-analysis',
@@ -86,11 +86,11 @@ MODELS = {
         'model': 'finiteautomata/bertweet-base-emotion-analysis',
         'labels': ['others', 'joy', 'sadness', 'anger', 'surprise', 'disgust', 'fear']
     },
-    'bert-sst2': {
-        # https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/blob/main/config.json
-        'model': 'distilbert-base-uncased-finetuned-sst-2-english',
-        'labels': ['negative', 'positive']
-    }
+    # 'bert-sst2': {
+    #     # https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/blob/main/config.json
+    #     'model': 'distilbert-base-uncased-finetuned-sst-2-english',
+    #     'labels': ['negative', 'positive']
+    # }
 }
 
 
@@ -101,15 +101,38 @@ def parse_tweet(t):
 
 
 if __name__ == '__main__':
-    TOTAL = 1642400
-    CHUNK_SIZE = 100000
-    N_CHUNKS = math.ceil(TOTAL / CHUNK_SIZE)
-    with open('data/geoengineering_tweets_tweets.jsonl') as f_in, \
-            open('data/geoengineering_tweets_sentop3.jsonl', 'a') as f_out:
+    LIMIT = 40000
+    CHUNK_SIZE = 1500
+    INIT_SKIP = 1354272
+    SOURCE_FILE = 'data/geoengineering_tweets_tweets.jsonl'
+    TARGET_FILE = 'data/geoengineering_tweets_sentop4_3.jsonl'
+
+    print('Loading tweets...')
+    with open(SOURCE_FILE) as f:
+        num_lines = sum(1 for l in f)
+        print(f'  - Source file contains {num_lines} tweets.')
+
+    SKIP_LINES = max(int(num_lines / LIMIT), 1)
+    N_CHUNKS = math.ceil(num_lines / CHUNK_SIZE)
+    print(f'  - Targeting to load {LIMIT} tweets by reading every {SKIP_LINES}th tweet...')
+
+    with open(SOURCE_FILE) as f_in, open(TARGET_FILE, 'w') as f_out:
+        line_num = 0
         for chunk in range(N_CHUNKS):
-            print(f'===== PROCESSING CHUNK {chunk} ({(chunk + 1) * CHUNK_SIZE}/{TOTAL}) =====')
-            tweets = [json.loads(next(f_in)) for _ in range(CHUNK_SIZE)]
-            tweets = [t for t in tweets if t['text'] is not None and len(t['text']) > 5]
+            print(f'===== PROCESSING CHUNK {chunk} ({(chunk + 1) * CHUNK_SIZE}/{num_lines}) =====')
+
+            tweets = []
+            while len(tweets) < CHUNK_SIZE and line_num < num_lines:
+                if line_num > INIT_SKIP and (line_num % SKIP_LINES) == 0:
+                    t = json.loads(next(f_in))
+                    if t['text'] is not None and len(t['text']) > 5:
+                        tweets.append(t)
+                else:  # skip / ignore line
+                    next(f_in)
+                line_num += 1
+
+            print(f'Current file pos: {line_num}; Tweets from {tweets[0]["created_at"]} to {tweets[-1]["created_at"]}')
+
             texts = [parse_tweet(t) for t in tweets]
 
             results = {}
@@ -117,8 +140,8 @@ if __name__ == '__main__':
                 start = time.time()
                 print(f'[{datetime.now()}] Applying model {model}...')
                 results[model] = assess_tweets(texts, model=info['model'], labels=info['labels'])
-                secs = time.time()-start
-                print(f'  - Done after {secs // 60 % 60, secs % 60}')
+                secs = time.time() - start
+                print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
             for i, tweet in enumerate(tweets):
                 tweet['sentiments'] = {m: results[m][i] for m in MODELS.keys()}
