@@ -19,9 +19,10 @@ if __name__ == '__main__':
     st.title('Twitter Hashtags')
 
     with st.expander('Settings'):
-        num_tweets = st.slider('Num Tweets', min_value=50, max_value=100000, value=100000)
+        num_tweets = st.slider('Num Tweets', min_value=50, max_value=1000000, value=500000)
         # tweets = load_tweets('data/identifier.sqlite', num_tweets)
-        tweets = load_tweets(filename='data/geoengineering_tweets_sentop4_full.jsonl', limit=num_tweets)
+        # tweets = load_tweets(filename='data/geoengineering_tweets_sentop4_full.jsonl', limit=num_tweets)
+        tweets = load_tweets(filename='data/climate_tweets.jsonl', limit=num_tweets)
 
         st.subheader('Vectoriser Settings')
         vector_cols = st.columns(4)
@@ -53,6 +54,7 @@ if __name__ == '__main__':
                                    format_func=lambda x: 'Least significant' if x else 'Most significant')
 
     st.metric(label='Vocabulary Size', value=grouped_hashtags.vocab_size)
+    st.metric(label='Number of Tweets', value=len(tweets))
     df_popular_hashtags = grouped_hashtags.get_top_hashtags_df(top_n=20,
                                                                from_vectoriser=from_vectoriser,
                                                                least_significant=least_significant)

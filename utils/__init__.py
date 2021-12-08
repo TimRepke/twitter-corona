@@ -11,6 +11,7 @@ def load_embedded_data_jsonl(
         backend: Type[BaseEmbedder] = SentenceTransformerBackend,
         model: str = 'vinai/bertweet-large',
         cache_dir: str = 'data/',
+        cache_prefix: str = '',
         source_file: str = 'data/geoengineering_tweets_tweets.jsonl',
         limit: int = 1000,
         remove_urls: bool = True,
@@ -18,8 +19,8 @@ def load_embedded_data_jsonl(
         remove_hashtags: bool = False,
         remove_mentions: bool = True) -> tuple[list[dict], np.ndarray]:
     cache_file = os.path.join(cache_dir,
-                              f'emb_cache_{limit}_{remove_urls}_{remove_nonals}_{remove_hashtags}_{remove_mentions}_'
-                              f'{backend.__name__}_{model.replace("/", "_")}.npy')
+                              f'emb_cache_{cache_prefix}_{limit}_{remove_urls}_{remove_nonals}_{remove_hashtags}_'
+                              f'{remove_mentions}_{backend.__name__}_{model.replace("/", "_")}.npy')
 
     print('Loading tweets...')
     with open(source_file) as f:

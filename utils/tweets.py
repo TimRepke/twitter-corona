@@ -95,6 +95,17 @@ def process_tweet(t: dict, remove_hashtags=True, remove_urls=True,
     )
 
 
+def read_tweets(filename, limit):
+    with open(filename) as f:
+        num_lines = sum(1 for _ in f)
+    skip_lines = max(int(num_lines / limit), 1)
+
+    with open(filename) as f:
+        tweets_d = [json.loads(l) for i, l in enumerate(f) if (i % skip_lines) == 0]
+        tweets_d = [t for t in tweets_d if t['text'] is not None and len(t['text']) > 5 and t['lang'] == 'en']
+        return tweets_d
+
+
 class Tweets:
     def __init__(self, db_file=None, filename=None,
                  remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True,
@@ -103,21 +114,9 @@ class Tweets:
         assert db_file or filename
 
         if db_file is not None:
-            self.limit = f'LIMIT {limit}' if limit is not None else ''
-
-            connection = sqlite3.connect(db_file)
-            self.cursor = connection.cursor()
-
-            print('Loading tweets...')
-            self.cursor.execute(f'SELECT * FROM pooled_sample_tweets {self.limit};')
-            tweets_d = fetchall_dict(self.cursor)
+            raise NotImplementedError('This was removed!')
         else:
-            with open(filename) as f:
-                num_lines = sum(1 for _ in f)
-            skip_lines = max(int(num_lines / limit), 1)
-            with open(filename) as f:
-                tweets_d = [json.loads(l) for i, l in enumerate(f) if (i % skip_lines) == 0]
-                tweets_d = [t for t in tweets_d if t['text'] is not None and len(t['text']) > 5]
+            tweets_d = read_tweets(filename, limit)
 
         self.tweets = [process_tweet(tweet, remove_hashtags, remove_urls, remove_mentions, remove_nonals)
                        for tweet in tweets_d]

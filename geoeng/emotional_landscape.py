@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     for topic in np.unique(topic_model.labels):
         pts = topic_model.layout[topic_model.labels == topic]
-        top_words = [w[0] for w in mmr_topics[topic]][:5]
+        top_words = [w[0] for w in mmr_topics[topic]][:2]
         # top_words = [w[0] for w in tfidf_topics[topic]][:5]
         texts = [
             tweets[idx]['text']

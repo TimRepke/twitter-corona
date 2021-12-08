@@ -90,6 +90,9 @@ class GroupedHashtags:
     def get_top_hashtags_df(self, top_n=20, from_vectoriser=True, least_significant=False) -> pd.DataFrame:
         relevant_tags = self.most_common(top_n, from_vectoriser, include_count=True, include_hashtag=True,
                                          least_common=least_significant)
+        for g, popular in relevant_tags:
+            print(g)
+            print([f'{ht} ({cnt:.3f})' for ht, cnt in popular])
 
         return pd.DataFrame([
             {**{'group': g}, **{f'Top_{i}': f'{ht} ({cnt:.3f})' for i, (ht, cnt) in enumerate(popular)}}
