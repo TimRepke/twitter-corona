@@ -67,13 +67,14 @@ def plot_stacked_area(groups_: dict[str, Group], model):
 FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
 SELECTED_FORMAT = 'monthly'
 FORMAT = FORMATS[SELECTED_FORMAT]
-# FILE = 'data/geoengineering_tweets_sentop.jsonl'
-FILE = 'data/climate_tweets_sentiment.jsonl'
 
-# TARGET_FOLDER = 'data/emotion_figures_geo'
-TARGET_FOLDER = 'data/emotion_figures_climate'
+# DATASET = 'geoengineering'
+DATASET = 'climate'
+LIMIT = 10000
+SOURCE_FILE = f'data/{DATASET}/tweets_sentiment_{LIMIT}.jsonl'
+TARGET_FOLDER = f'data/{DATASET}/sentiments'
 
-with open(FILE) as f:
+with open(SOURCE_FILE) as f:
     groups = {}
 
     for line in tqdm(f):

@@ -4,10 +4,14 @@ Small data exploration project.
 
 Current Features:
 * Explore hashtag usage over time
+* Some fun interactive UMAP Vis
 * _[TODO]_ Explore Tweet similarities over time (VSM)
 * _[TODO]_ Explore Tweet similarities over time (Embeddings)
-* _[TODO]_ Some fun interactive UMAP Vis
 * _[TODO]_ Some fun AlignedUMAP Animation
+
+For clean execution. Ignore the rest of the repository and start with the `pipeline` folder. 
+The other code is exploratory any may not be compatible anymore. `utils` is mostly maintained
+and is used in the pipeline.
 
 Note: May require Python 3.9+
 

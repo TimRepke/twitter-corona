@@ -1,7 +1,10 @@
 import json
 
-# FILE = 'data/geoengineering_tweets_sentop.jsonl'
-FILE = 'data/climate_tweets_sentiment.jsonl'
+# DATASET = 'geoengineering'
+DATASET = 'climate'
+
+LIMIT = 10000
+FILE = f'data/{DATASET}/tweets_sentiment_{LIMIT}.jsonl'
 
 with open(FILE) as f:
     for line in f:

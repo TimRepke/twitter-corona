@@ -9,7 +9,7 @@ from tqdm import tqdm
 from utils.tweets import clean_tweet, read_tweets
 import math
 import time
-
+import os
 
 # https://github.com/dhs-gov/sentop/
 
@@ -93,46 +93,48 @@ MODELS = {
     # }
 }
 
+def produce_batches(fp, batch_size, init_skip=0):
+    print('Counting tweets...')
+    num_lines = sum(1 for l in fp)
+    print(f'  - Source file contains {num_lines} tweets.')
+    n_batches = math.ceil(num_lines / batch_size)
+    fp.seek(0)
 
-def parse_tweet(t):
-    txt = clean_tweet(t['text'], remove_hashtags=False, remove_urls=True, remove_nonals=True, remove_mentions=True)
-    return ' '.join(txt.split(' ')[:256])
+    line_num = 0
+    for _ in range(init_skip):
+        next(f_in)
+        line_num+=1
+
+    for batch_i in range(n_batches):
+        print(f'===== PROCESSING BATCH {batch_i + 1} ({(batch_i + 1) * BATCH_SIZE}/{num_lines}) =====')
+
+        tweets = []
+        while len(tweets) < BATCH_SIZE and line_num < num_lines:
+            tweets.append(json.loads(next(f_in)))
+            line_num += 1
+
+        print(f'Current file pos: {line_num}; Tweets from {tweets[0]["created_at"]} to {tweets[-1]["created_at"]}')
+        yield tweets
 
 
 if __name__ == '__main__':
-    LIMIT = 1000000
-    CHUNK_SIZE = 1500
-    INIT_SKIP = 0
-    SOURCE_FILE = 'data/climate_tweets.jsonl'
-    TARGET_FILE = 'data/climate_tweets_sentiment.jsonl'
+    # DATASET = 'geoengineering'
+    DATASET = 'climate'
 
-    print('Loading tweets...')
-    with open(SOURCE_FILE) as f:
-        num_lines = sum(1 for l in f)
-        print(f'  - Source file contains {num_lines} tweets.')
+    SKIP_FIRST_N_LINES = 0  # can be used to continue a run that failed
+    BATCH_SIZE = 1500
+    LIMIT = 10000
 
-    SKIP_LINES = max(int(num_lines / LIMIT), 1)
-    N_CHUNKS = math.ceil(num_lines / CHUNK_SIZE)
-    print(f'  - Targeting to load {LIMIT} tweets by reading every {SKIP_LINES}th tweet...')
+    SOURCE_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
+    TARGET_FILE = f'data/{DATASET}/tweets_sentiment_{LIMIT}.jsonl'
+
+    if os.path.exists(TARGET_FILE):
+        print(f'The file {TARGET_FILE} already exists. If you are sure you want to proceed, delete it first.')
+        exit(1)
 
     with open(SOURCE_FILE) as f_in, open(TARGET_FILE, 'w') as f_out:
-        line_num = 0
-        for chunk in range(N_CHUNKS):
-            print(f'===== PROCESSING CHUNK {chunk} ({(chunk + 1) * CHUNK_SIZE}/{num_lines}) =====')
-
-            tweets = []
-            while len(tweets) < CHUNK_SIZE and line_num < num_lines:
-                if line_num > INIT_SKIP and (line_num % SKIP_LINES) == 0:
-                    t = json.loads(next(f_in))
-                    if t['text'] is not None and len(t['text']) > 5 and t['lang'] == 'en':
-                        tweets.append(t)
-                else:  # skip / ignore line
-                    next(f_in)
-                line_num += 1
-
-            print(f'Current file pos: {line_num}; Tweets from {tweets[0]["created_at"]} to {tweets[-1]["created_at"]}')
-
-            texts = [parse_tweet(t) for t in tweets]
+        for tweets_batch in produce_batches(f_in, BATCH_SIZE, SKIP_FIRST_N_LINES):
+            texts = [t['clean_text'] for t in tweets_batch]
 
             results = {}
             for model, info in MODELS.items():
@@ -142,6 +144,6 @@ if __name__ == '__main__':
                 secs = time.time() - start
                 print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
-            for i, tweet in enumerate(tweets):
+            for i, tweet in enumerate(tweets_batch):
                 tweet['sentiments'] = {m: results[m][i] for m in MODELS.keys()}
                 f_out.write(json.dumps(tweet) + '\n')

@@ -59,7 +59,7 @@ def get_mentions(s):
 
 
 def get_urls(s):
-    return PATTERN_URL.findall(s)
+    return [u[0] for u in PATTERN_URL.findall(s)]
 
 
 def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True):
