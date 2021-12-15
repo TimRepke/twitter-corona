@@ -11,14 +11,15 @@ import os
 
 # DATASET = 'geoengineering'
 DATASET = 'climate'
-SOURCE_FILE = f'data/{DATASET}/tweets_raw.jsonl'
+SOURCE_FILE = f'data/{DATASET}/tweets_clean.jsonl'
 
-LIMIT = 1000000
+LIMIT = 10000
 ONLY_EN = True
 MIN_TOKENS = 4
 MAX_HASHTAGS = 5
 
 RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_{ONLY_EN}_{MIN_TOKENS}_{MAX_HASHTAGS}.txt'
+IRRELEVANCE_FILE = f'data/{DATASET}/tweets_irrelevant_{ONLY_EN}_{MIN_TOKENS}_{MAX_HASHTAGS}.txt'
 TARGET_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
 
 
@@ -46,22 +47,34 @@ if __name__ == '__main__':
         n_duplicates = 0
         n_irrelevant = 0
         print('Filter and remove duplicates...')
-        with open(SOURCE_FILE, 'r') as f_in, open(RELEVANCE_FILE, 'w') as f_out:
+        with open(SOURCE_FILE, 'r') as f_in, \
+                open(RELEVANCE_FILE, 'w') as f_rel_out, \
+                open(IRRELEVANCE_FILE, 'w') as f_irrel_out:
             hashes = set()
             for line_i, line in tqdm(enumerate(f_in)):
                 tweet_o = json.loads(line)
                 num_lines += 1
-                if is_relevant(tweet_o):
+
+                is_en = (not ONLY_EN) or (ONLY_EN and tweet_o['lang'] != 'en')
+                has_text = tweet_o['text'] is not None
+                has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= MIN_TOKENS
+                has_max_hashtags = tweet_o['meta']['n_hashtags'] <= MAX_HASHTAGS
+
+                # if is_relevant(tweet_o):
+                if is_en and has_text and has_min_tokens and has_max_hashtags:
                     h = get_hash(tweet_o)
                     if h not in hashes:
                         # relevant and non-duplicate
-                        f_out.write(f'{line_i}\n')
+                        f_rel_out.write(f'{line_i}\n')
                     else:
+                        f_irrel_out.write(f'{line_i}|1|0|0|0|0\n')
                         n_duplicates += 1
                     hashes.add(h)
                 else:
+                    f_irrel_out.write(f'{line_i}|0|{is_en:d}|{has_text:d}|{has_min_tokens:d}|{has_max_hashtags:d}\n')
                     n_irrelevant += 1
-            print(f'Read {num_lines} lines, found {n_duplicates} duplicates and {n_irrelevant} irrelevant tweets.')
+            print(f'Read {num_lines:,} lines, found {n_duplicates:,} '
+                  f'duplicates and {n_irrelevant:,} irrelevant tweets.')
 
             # clear up memory
             del hashes
@@ -70,11 +83,11 @@ if __name__ == '__main__':
     else:
         print(f'I\'m using the already existing relevance file {RELEVANCE_FILE}!')
         with open(RELEVANCE_FILE) as f:
-            N_LINES = sum(1 for l in f)
+            N_LINES = sum(1 for _ in f)
 
     SKIP_LINES = max(int(N_LINES / LIMIT), 1)
 
-    print(f'Aiming to reduce size of the dataset from {N_LINES} to {LIMIT} '
+    print(f'Aiming to reduce size of the dataset from {N_LINES:,} to {LIMIT:,} '
           f'by skipping {SKIP_LINES} relevant non-duplicate tweets.')
     with open(SOURCE_FILE) as f_source, open(RELEVANCE_FILE) as f_rel, open(TARGET_FILE, 'w') as f_out:
         line_source = 0
@@ -84,11 +97,12 @@ if __name__ == '__main__':
             if (line_rel % SKIP_LINES) == 0:
                 next_source_line = int(next(f_rel))
                 line = None
-                while next_source_line < line_source:
+                while line_source <= next_source_line:
                     line = next(f_source)
                     line_source += 1
-                f_out.write(line + '\n')
+                if line is None:
+                    break
+                f_out.write(line)
             else:  # skip / ignore line
-                next(f_in)
+                next(f_source)
             line_rel += 1
-

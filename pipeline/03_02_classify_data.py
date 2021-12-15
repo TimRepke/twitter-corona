@@ -14,24 +14,6 @@ import os
 # https://github.com/dhs-gov/sentop/
 
 
-def assess_tweets(texts: list[str], model, labels):
-    def process_result(scores):
-        srt = np.argsort(scores)
-        # return [f'{labels[i]} ({scores[i]:.2f})' for i in reversed(srt)]
-        scores_lst = scores.tolist()
-        return [(labels[i], scores_lst[i]) for i in reversed(srt)]
-
-    classifier = EasySequenceClassifier()
-    res = classifier.tag_text(
-        text=texts,
-        model_name_or_path=model
-    )
-    return [
-        process_result(r)
-        for r in res['probs']
-    ]
-
-
 MODELS = {
     # to find more models, browse this page:
     # https://huggingface.co/models?pipeline_tag=text-classification&sort=downloads
@@ -93,6 +75,7 @@ MODELS = {
     # }
 }
 
+
 def produce_batches(fp, batch_size, init_skip=0):
     print('Counting tweets...')
     num_lines = sum(1 for l in fp)
@@ -103,7 +86,7 @@ def produce_batches(fp, batch_size, init_skip=0):
     line_num = 0
     for _ in range(init_skip):
         next(f_in)
-        line_num+=1
+        line_num += 1
 
     for batch_i in range(n_batches):
         print(f'===== PROCESSING BATCH {batch_i + 1} ({(batch_i + 1) * BATCH_SIZE}/{num_lines}) =====')
@@ -115,6 +98,24 @@ def produce_batches(fp, batch_size, init_skip=0):
 
         print(f'Current file pos: {line_num}; Tweets from {tweets[0]["created_at"]} to {tweets[-1]["created_at"]}')
         yield tweets
+
+
+def assess_tweets(texts: list[str], model, labels):
+    def process_result(scores):
+        srt = np.argsort(scores)
+        # return [f'{labels[i]} ({scores[i]:.2f})' for i in reversed(srt)]
+        scores_lst = scores.tolist()
+        return [(labels[i], scores_lst[i]) for i in reversed(srt)]
+
+    classifier = EasySequenceClassifier()
+    res = classifier.tag_text(
+        text=texts,
+        model_name_or_path=model
+    )
+    return [
+        process_result(r)
+        for r in res['probs']
+    ]
 
 
 if __name__ == '__main__':

@@ -9,8 +9,8 @@ import numpy as np
 
 from .embedding import BaseEmbedder, SentenceTransformerBackend
 
-PATTERN_URL = re.compile(
-    r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
+# PATTERN_URL = re.compile(r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
+PATTERN_URL = re.compile(r'(https?://[^\s]+)')
 PATTERN_HASHTAG = re.compile(r'#[a-zA-Z0-9_]+')
 PATTERN_MENTION = re.compile(r'@[a-zA-Z0-9_]+')
 PATTERN_NON_ALPH_NUM = re.compile(r'[^a-zA-Z0-9 ]')
@@ -59,7 +59,7 @@ def get_mentions(s):
 
 
 def get_urls(s):
-    return [u[0] for u in PATTERN_URL.findall(s)]
+    return PATTERN_URL.findall(s)
 
 
 def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True):

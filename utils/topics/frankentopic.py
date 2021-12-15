@@ -53,6 +53,8 @@ class UMAPArgs:
 class TSNEArgs:
     perplexity: int = 30
     exaggeration: float = None
+    early_exaggeration_iter: int = 250
+    early_exaggeration: float = 12
     initialization: Literal['random', 'pca', 'spectral'] = "random"
     metric: str = 'cosine'
     n_jobs: int = 8

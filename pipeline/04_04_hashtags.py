@@ -1,4 +1,5 @@
 import datetime
+import os
 import sqlite3
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -25,11 +26,11 @@ def line2tweet(line):
 
 # DATASET = 'geoengineering'
 DATASET = 'climate'
-LIMIT = 10000
+LIMIT = 1000000
 SOURCE_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
 
-MIN_DF = 10
-MAX_DF = 0.8
+MIN_DF = 5
+MAX_DF = .8
 BINARY = False
 
 VECTORISER = ['tfidf', 'count'][0]
@@ -49,13 +50,15 @@ SIMILARITY_METRIC = ['braycurtis', 'canberra', 'chebyshev', 'cityblock',
                      'seuclidean', 'sokalmichener', 'sokalsneath',
                      'sqeuclidean', 'wminkowski', 'yule'][5]
 
-TARGET_BASE = f'data/{DATASET}/hashtags_{LIMIT}_{FORMAT}_{MODE}'
+TARGET_FOLDER = f'data/{DATASET}/similarities'
+TARGET_BASE = f'{TARGET_FOLDER}/{MODE}_{LIMIT}_{VECTORISER}_{FORMAT}_{MIN_DF}_{str(MAX_DF).replace(".", "")}_{BINARY}'
+os.makedirs(TARGET_FOLDER, exist_ok=True)
 
 if __name__ == '__main__':
     print('Loading tweets...')
     with open(SOURCE_FILE) as f_in:
         tweets = [line2tweet(l) for l in f_in]
-    print(f'Number of tweets: {len(tweets)}')
+    print(f'Number of tweets: {len(tweets):,}')
 
     print('Grouping tweets...')
     grouped_tweets = defaultdict(list)
@@ -65,20 +68,21 @@ if __name__ == '__main__':
     print(f'Number of groups: {len(groups)}')
 
     if MODE == 'hashtags':
-        fake_docs = [' '.join([ht for t in g for ht in t['hashtags']]) for g in groups]
+        fake_docs = [' '.join([ht for t in grouped_tweets[g] for ht in t['hashtags']]) for g in groups]
     elif MODE == 'tokens':
-        fake_docs = [' '.join([t['text'] for t in g]) for g in groups]
+        fake_docs = [' '.join([t['text'] for t in grouped_tweets[g]]) for g in groups]
     else:  # MODE == 'mixed'
-        fake_docs = [' '.join([t['text'] for t in g]) + ' '.join([ht for t in g for ht in t['hashtags']])
+        fake_docs = [' '.join([t['text'] for t in grouped_tweets[g]]) +
+                     ' '.join([ht for t in grouped_tweets[g] for ht in t['hashtags']])
                      for g in groups]
 
     vectoriser = TfidfVectorizer if VECTORISER == 'tfidf' else CountVectorizer
-    vectoriser = vectoriser(min_df=MIN_DF, max_df=MAX_DF, binary=BINARY)
+    vectoriser = vectoriser(min_df=MIN_DF, max_df=MAX_DF, binary=BINARY, token_pattern=r'(?u)(?:\b|#)\w\w+\b')
     grouped_hashtags = GroupedHashtags(groups, fake_docs, vectoriser=vectoriser)
 
-    print(f'Vocab size: {grouped_hashtags.vocab_size}')
+    print(f'Vocab size: {grouped_hashtags.vocab_size:,}')
 
-    with open(f'{TARGET_BASE}_top_{VECTORISER}_tokens.txt') as f_out:
+    with open(f'{TARGET_BASE}_top_tokens.txt', 'w') as f_out:
         f_out.write(f'Vocab size: {grouped_hashtags.vocab_size}\n')
         f_out.write(f'Number of groups: {len(groups)}\n')
         relevant_tags = grouped_hashtags.most_common(top_n=TOKEN_PRINT_LIMIT, include_count=True,
@@ -112,29 +116,35 @@ if __name__ == '__main__':
     fig.update_yaxes(autorange=True, tickformat=GROUPING)
     fig.update_xaxes(tickformat=GROUPING)
 
-    # events = [
-    #     (datetime.date(year=2017, month=1, day=20), 'Donald Trump'),  # Trump inauguration as president
-    #     (datetime.date(year=2018, month=8, day=20), 'Greta'),  # Greta Thunberg started her strike
-    #     (datetime.date(year=2019, month=9, day=1), 'Australian Bushfires'),  # out-of-control fires sprung up
-    #     (datetime.date(year=2019, month=12, day=24), 'First Covid Case'),  # First patient in Wuhan Hospital
-    #     (datetime.date(year=2020, month=3, day=11), 'Declared Pandemic'),  # WHO declared COVID-19 as pandemic
-    #     (datetime.date(year=2020, month=12, day=27), 'Vaccine Rollout'),  # EU officially began vaccine rollout
-    # ]
-    # events = [{'date': dt,
-    #            'group': dt.strftime(GROUPING),
-    #            'group_idx': groups.index(dt.strftime(GROUPING)),
-    #            'text': txt}
-    #           for dt, txt in events]
-    #
-    # for event in events:
-    #     fig.add_hline(y=event['group_idx'],
-    #                   line_dash="dot",
-    #                   annotation_text=event['text'],
-    #                   annotation_position="bottom right",
-    #                   annotation_font_size=14,
-    #                   annotation_font_color="blue")
+    events = [
+        (datetime.date(year=2016, month=11, day=7), 'COP22 Marrakech'),  # COP 21 in Marrakech, Morocco, 7–18 Nov
+        (datetime.date(year=2017, month=1, day=20), 'Donald Trump'),  # Trump inauguration as president
+        (datetime.date(year=2017, month=8, day=17), 'Hurricane Harvey'),  # Greta Thunberg started her strike
+        (datetime.date(year=2017, month=11, day=6), 'COP23 Bonn'),  # COP23 Bonn, GER, 	6- 17 November 2017
+        (datetime.date(year=2018, month=8, day=20), 'Greta'),  # Greta Thunberg started her strike
+        (datetime.date(year=2018, month=12, day=2), 'COP24 Katowice'),  # COP24 in Poland 2-15 Dec
+        (datetime.date(year=2019, month=9, day=1), 'Australian Bushfires'),  # out-of-control fires sprung up
+        (datetime.date(year=2019, month=12, day=2), 'COP25 Madrid'),  # COP25 Madrid, Spain,  2-13 Dec 2019
+        (datetime.date(year=2019, month=12, day=24), 'First Covid Case'),  # First patient in Wuhan Hospital
+        (datetime.date(year=2020, month=3, day=11), 'Declared Pandemic'),  # WHO declared COVID-19 as pandemic
+        (datetime.date(year=2020, month=12, day=27), 'Vaccine Rollout'),  # EU officially began vaccine rollout
+        (datetime.date(year=2021, month=10, day=31), 'COP26 Glasgow'),  # COP26 Glasgow, Scotland, 31 Oct - 13 Nov
+    ]
+    events = [{'date': dt,
+               'group': dt.strftime(GROUPING),
+               'group_idx': groups.index(dt.strftime(GROUPING)),
+               'text': txt}
+              for dt, txt in events]
 
-    fig.write_html(f'{TARGET_BASE}_{VECTORISER}_similarities.html')
+    for event in events:
+        fig.add_hline(y=event['group_idx'],
+                      line_dash="dot",
+                      annotation_text=event['text'],
+                      annotation_position="bottom right",
+                      annotation_font_size=10,
+                      annotation_font_color="blue")
+
+    fig.write_html(f'{TARGET_BASE}_similarities.html')
 
     # top_tags = grouped_hashtags.most_common(top_n=1, include_count=False, include_hashtag=True,
     #                                         least_common=least_significant,

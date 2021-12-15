@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
     EMBEDDING_MODEL = 'vinai/bertweet-large'
 
-    LIMIT = 10000
+    LIMIT = 1000000
     INCLUDE_HASHTAGS = True
     SOURCE_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
     TARGET_FILE = f'data/{DATASET}/tweets_embeddings_{LIMIT}_{INCLUDE_HASHTAGS}_' \

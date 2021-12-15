@@ -40,15 +40,15 @@ class GroupedHashtags:
             indices = np.flip(np.asarray(np.argsort(self.vectors.todense(), axis=1)[:, -top_n:]), axis=1)
 
         token_value_pairs = [
-            [('#' + self.vocab[ind], self.vectors[row_i, ind]) for ind in row]
+            [(self.vocab[ind], self.vectors[row_i, ind]) for ind in row]
             for row_i, row in enumerate(indices)
         ]
         if include_count and include_hashtag:
-            return [(group, tvps) for group, tvps in zip(self.groups.keys(), token_value_pairs)]
+            return [(group, tvps) for group, tvps in zip(self.groups, token_value_pairs)]
         if include_hashtag:
-            return [(group, [tvp[0] for tvp in tvps]) for group, tvps in zip(self.groups.keys(), token_value_pairs)]
+            return [(group, [tvp[0] for tvp in tvps]) for group, tvps in zip(self.groups, token_value_pairs)]
         if include_count:
-            return [(group, [tvp[1] for tvp in tvps]) for group, tvps in zip(self.groups.keys(), token_value_pairs)]
+            return [(group, [tvp[1] for tvp in tvps]) for group, tvps in zip(self.groups, token_value_pairs)]
 
     def pairwise_similarities(self, metric: Literal['braycurtis', 'canberra', 'chebyshev', 'cityblock',
                                                     'correlation', 'cosine', 'dice', 'euclidean', 'hamming',

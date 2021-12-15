@@ -17,15 +17,28 @@ class FrankenTopicUtils:
                  n_tokens_per_topic: int = 20):
         self.tweets = tweets
         self.topic_model = topic_model
+        self.n_tokens_per_topic = n_tokens_per_topic
 
-        self.tfidf_topics = topic_model.get_top_n_tfidf(n_tokens_per_topic)
-        self.mmr_topics = topic_model.get_top_n_mmr(n_tokens_per_topic)
+        self.tfidf_topics_ = None
+        self.mmr_topics_ = None
 
         self.topic_ids, self.topic_sizes = np.unique(topic_model.labels, return_counts=True)
         self.num_topics = len(self.topic_ids)
 
-    def list_topics(self, emotions_model: str = None, emotions_keys: list[str] = None):
-        for w1, w2, c_i, c_cnt in zip(self.tfidf_topics, self.mmr_topics, self.topic_ids, self.topic_sizes):
+    @property
+    def tfidf_topics(self):
+        if self.tfidf_topics_ is None:
+            self.tfidf_topics_ = self.topic_model.get_top_n_tfidf(self.n_tokens_per_topic)
+        return self.tfidf_topics_
+
+    @property
+    def mmr_topics(self):
+        if self.mmr_topics_ is None:
+            self.mmr_topics_ = self.topic_model.get_top_n_mmr(self.n_tokens_per_topic)
+        return self.mmr_topics_
+
+    def list_topics(self, emotions_model: str = None, emotions_keys: list[str] = None, include_mmr=True):
+        for i, (c_i, c_cnt) in enumerate(zip(self.topic_ids, self.topic_sizes)):
             print(f'>> Topic {c_i} with {c_cnt} Tweets:')
             if emotions_model is not None and emotions_keys is not None:
                 topic_sentiments = [self.tweets[idx]['sentiments'][emotions_model][0][0]
@@ -36,8 +49,9 @@ class FrankenTopicUtils:
                     f'({(topic_sentiments_cnt.get(l, 0) / sum(topic_sentiments_cnt.values())) * 100:.1f}%)'
                     for l in emotions_keys]))
 
-            print('tfidf:', [w[0] for w in w1])
-            print('mmr:', [w[0] for w in w2])
+            print('tfidf:', [w[0] for w in self.tfidf_topics[i]])
+            if include_mmr:
+                print('mmr:', [w[0] for w in self.mmr_topics[i]])
             print('---')
 
     def get_keywords(self,
@@ -108,22 +122,39 @@ class FrankenTopicUtils:
 
         return fig
 
-    def temporal_stacked(self,
-                         date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
-                         n_keywords_per_topic: int = 5,
-                         keyword_source: Literal['mmr', 'tfidf'] = 'mmr',
-                         colorscheme=glasbey
-                         ):
-
+    def get_temporal_distribution(self,
+                                  date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
+                                  boost: list[Literal['retweets', 'likes', 'replies']] = None,
+                                  skip_topic_zero=False):
         groups = {}
         for tw, to in zip(self.tweets, self.topic_model.labels):
-            timestamp = datetime.strptime(tw['created_at'][:19], '%Y-%m-%dT%H:%M:%S')
-            group = timestamp.strftime(FORMATS[date_format])
+            if (not skip_topic_zero) or (skip_topic_zero and to != 0):
+                timestamp = datetime.strptime(tw['created_at'][:19], '%Y-%m-%dT%H:%M:%S')
+                group = timestamp.strftime(FORMATS[date_format])
 
-            if group not in groups:
-                groups[group] = np.zeros_like(self.topic_ids)
+                if group not in groups:
+                    groups[group] = np.zeros_like(self.topic_ids)
 
-            groups[group][to] += 1
+                groups[group][to] += 1
+                if boost is not None:
+                    # "favorites_count": 0, "retweets_count": 0, "replies_count": 0
+                    boost_map = {
+                        'retweets': 'retweets_count',
+                        'likes': 'favorites_count',
+                        'replies': 'replies_count'
+                    }
+                    for b in boost:
+                        groups[group][to] += tw.get(boost_map[b], 0)
+
+        return groups
+
+    def temporal_stacked_fig(self,
+                             date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
+                             n_keywords_per_topic: int = 5,
+                             keyword_source: Literal['mmr', 'tfidf'] = 'mmr',
+                             colorscheme=glasbey):
+
+        groups = self.get_temporal_distribution(date_format=date_format, boost=None, skip_topic_zero=True)
 
         fig = go.Figure()
         x = list(groups.keys())
