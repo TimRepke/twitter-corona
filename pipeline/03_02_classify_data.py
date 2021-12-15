@@ -1,7 +1,7 @@
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import numpy as np
 from adaptnlp import EasySequenceClassifier
@@ -11,7 +11,7 @@ from utils.io import exit_if_exists, produce_batches
 # https://github.com/dhs-gov/sentop/
 
 
-def assess_tweets(texts: "list[str]", model, labels):
+def assess_tweets(texts: List[str], model, labels):
     def process_result(scores):
         srt = np.argsort(scores)
         # return [f'{labels[i]} ({scores[i]:.2f})' for i in reversed(srt)]
