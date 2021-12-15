@@ -1,55 +1,60 @@
-from adaptnlp import EasySequenceClassifier
-
-from datetime import datetime
-# from senti import preprocess
 import json
-from abc import ABC, abstractmethod
+from typing import Optional
+
 import numpy as np
-from tqdm import tqdm
-from utils.tweets import clean_tweet, read_tweets
-import math
-import time
-import os
 from utils.embedding import SentenceTransformerBackend
+from utils.io import exit_if_exists
 
 
 def line2txt_hashtags(line):
     tweet = json.loads(line)
-    return tweet['clean_text'] + (' '.join(tweet['meta']['hashtags']))
+    return tweet["clean_text"] + (" ".join(tweet["meta"]["hashtags"]))
 
 
 def line2txt_clean(line):
     tweet = json.loads(line)
-    return tweet['clean_text']
+    return tweet["clean_text"]
 
 
-if __name__ == '__main__':
-    # DATASET = 'geoengineering'
-    DATASET = 'climate'
+def embed_tweets(
+    dataset: str,
+    model: str,
+    limit: int,
+    include_hashtags: bool,
+    source_f: Optional[str] = None,
+    target_f: Optional[str] = None,
+):
 
-    # EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
-    EMBEDDING_MODEL = 'vinai/bertweet-large'
+    if source_f is None:
+        source_f = f"data/{dataset}/tweets_filtered_{limit}.jsonl"
+    if target_f is None:
+        target_f = (
+            f"data/{dataset}/tweets_embeddings_{limit}_{include_hashtags}_"
+            f'{model.replace("/", "_")}.npy'
+        )
 
-    LIMIT = 1000000
-    INCLUDE_HASHTAGS = True
-    SOURCE_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
-    TARGET_FILE = f'data/{DATASET}/tweets_embeddings_{LIMIT}_{INCLUDE_HASHTAGS}_' \
-                  f'{EMBEDDING_MODEL.replace("/", "_")}.npy'
+    exit_if_exists(target_f)
 
-    if os.path.exists(TARGET_FILE):
-        print(f'The file {TARGET_FILE} already exists. If you are sure you want to proceed, delete it first.')
-        exit(1)
-
-    print('Loading texts...')
-    with open(SOURCE_FILE) as f_in:
-        if INCLUDE_HASHTAGS:
+    print("Loading texts...")
+    with open(source_f) as f_in:
+        if include_hashtags:
             texts = [line2txt_hashtags(l) for l in f_in]
         else:
             texts = [line2txt_clean(l) for l in f_in]
 
-    print('Embedding texts...')
-    model = SentenceTransformerBackend(EMBEDDING_MODEL)
+    print("Embedding texts...")
+    model = SentenceTransformerBackend(model)
     embeddings = model.embed_documents(texts, verbose=True)
 
-    print('Storing embeddings...')
-    np.save(TARGET_FILE, embeddings)
+    print("Storing embeddings...")
+    np.save(target_f, embeddings)
+
+
+if __name__ == "__main__":
+
+    embed_tweets(
+        dataset="climate",  # 'geoengineering'
+        model="vinai/bertweet-large",  # 'paraphrase-multilingual-MiniLM-L12-v2'
+        limit=10000,
+        include_hashtags=True,
+    )
