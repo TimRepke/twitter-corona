@@ -5,3 +5,6 @@ tvip/
 data/
 *.sqlite
 /cards/
+.vscode/
+**/.env
+.python-version
