@@ -4,7 +4,7 @@ from datetime import datetime
 from dataclasses import dataclass
 import sqlite3
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, List, Tuple
 import numpy as np
 
 from .embedding import BaseEmbedder, SentenceTransformerBackend
@@ -24,9 +24,9 @@ class Tweet:
     text: str
     clean_text: str
     date: datetime
-    hashtags: list[str]
-    mentions: list[str]
-    urls: list[str]
+    hashtags: List[str]
+    mentions: List[str]
+    urls: List[str]
 
 
 def fetchall_dict(cur):
@@ -124,7 +124,7 @@ class Tweets:
     def __len__(self):
         return len(self.tweets)
 
-    def groupby_date(self, fmt) -> dict[list]:
+    def groupby_date(self, fmt) -> "dict[list]":
         ret = defaultdict(list)
         [ret[li.date.strftime(fmt)].append(li) for li in self.tweets]
         return ret
@@ -136,7 +136,7 @@ class Tweets:
         return model.embed_documents([t.clean_text for t in self.tweets],
                                      verbose=True)
 
-    def histogram(self, fmt) -> list[dict]:
+    def histogram(self, fmt) -> List[dict]:
         self.cursor.execute(
             f"""
                 SELECT strftime('{fmt}', created_at) grp, count(1) freq

@@ -1,12 +1,9 @@
-import os.path
-from datetime import datetime
 import json
-from abc import ABC, abstractmethod
-import numpy as np
+from typing import Optional
+
 from tqdm import tqdm
-from utils.tweets import clean_tweet, get_urls, get_hashtags, get_mentions
-import math
-import time
+from utils.io import count_tweets, exit_if_exists, produce_batches
+from utils.tweets import clean_tweet, get_hashtags, get_mentions, get_urls
 
 
 def process_tweet(tweet):
@@ -32,29 +29,35 @@ def process_tweet(tweet):
     return tweet
 
 
-# DATASET = 'geoengineering'
-DATASET = 'climate'
-BATCH_SIZE = 200000
-SOURCE_FILE = f'data/{DATASET}/tweets_raw.jsonl'
-TARGET_FILE = f'data/{DATASET}/tweets_clean.jsonl'
+def prepare_dataset(
+    dataset: str,
+    batch_size: int,
+    skip_first_n_lines: int = 0,
+    source_f: Optional[str] = None,
+    target_f: Optional[str] = None,
+):
+
+    if source_f is None:
+        source_f = f"data/{dataset}/tweets_raw.jsonl"
+    if target_f is None:
+        target_f = f"data/{dataset}/tweets_clean.jsonl"
+
+    exit_if_exists(target_f)
+
+    count_tweets(source_f)
+
+    with open(source_f, "r") as f_in, open(target_f, "w") as f_out:
+
+        for tweets_batch in tqdm(produce_batches(f_in, batch_size, skip_first_n_lines)):
+            print("Processing batch...")
+            tweets = [process_tweet(t) for t in tweets_batch]
+            print("Writing batch...")
+            [f_out.write(json.dumps(t) + "\n") for t in tweets]
 
 
-def get_batches(fp):
-    while True:
-        batch = [json.loads(next(fp)) for _ in range(BATCH_SIZE)]
-        if len(batch) == 0:
-            break
-        yield batch
+if __name__ == "__main__":
 
-
-if __name__ == '__main__':
-    if os.path.exists(TARGET_FILE):
-        print(f'The file {TARGET_FILE} already exists. If you are sure you want to proceed, delete it first.')
-        exit(1)
-
-    with open(SOURCE_FILE, 'r') as f_in, open(TARGET_FILE, 'w') as f_out:
-        for batch_i, tweets in enumerate(get_batches(f_in)):
-            print(f'Processing batch {batch_i} ({batch_i * BATCH_SIZE:,} to {(batch_i + 1) * BATCH_SIZE:,}) ...')
-            tweets = [process_tweet(t) for t in tweets]
-            print('Writing batch...')
-            [f_out.write(json.dumps(t) + '\n') for t in tweets]
+    prepare_dataset(
+        dataset="climate",  # 'geoengineering'
+        batch_size=200000
+    )

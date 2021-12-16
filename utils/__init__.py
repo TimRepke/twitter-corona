@@ -1,7 +1,7 @@
 import json
 import os
 import numpy as np
-from typing import Type
+from typing import Type, Tuple, List
 
 from .tweets import Tweets, clean_tweet
 from .embedding import SentenceTransformerBackend, BaseEmbedder
@@ -17,7 +17,7 @@ def load_embedded_data_jsonl(
         remove_urls: bool = True,
         remove_nonals: bool = True,
         remove_hashtags: bool = False,
-        remove_mentions: bool = True) -> tuple[list[dict], np.ndarray]:
+        remove_mentions: bool = True) -> Tuple[List[dict], np.ndarray]:
     cache_file = os.path.join(cache_dir,
                               f'emb_cache_{cache_prefix}_{limit}_{remove_urls}_{remove_nonals}_{remove_hashtags}_'
                               f'{remove_mentions}_{backend.__name__}_{model.replace("/", "_")}.npy')
@@ -69,7 +69,7 @@ def load_embedded_data(backend: Type[BaseEmbedder] = SentenceTransformerBackend,
                        remove_urls: bool = True,
                        remove_nonals: bool = True,
                        remove_hashtags: bool = False,
-                       remove_mentions: bool = True) -> tuple[Tweets, np.ndarray]:
+                       remove_mentions: bool = True) -> Tuple[Tweets, np.ndarray]:
     cache_file = os.path.join(cache_dir,
                               f'emb_cache_{limit}_{remove_urls}_{remove_nonals}_{remove_hashtags}_{remove_mentions}_'
                               f'{backend.__name__}_{model}.npy')
