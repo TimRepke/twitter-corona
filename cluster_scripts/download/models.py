@@ -3,7 +3,8 @@ from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
 from tqdm.auto import tqdm
-from transformers import AutoModel, AutoModelForSequenceClassification, AutoTokenizer
+from transformers import (AutoModel, AutoModelForSequenceClassification,
+                          AutoTokenizer)
 
 pipe_classify = importlib.import_module("pipeline.03_02_classify_data")
 
@@ -59,12 +60,14 @@ class ModelCache:
     def is_cached(self, model_name: str) -> bool:
         return self.get_cache_path(model_name).exists()
 
-    def cache_models(self) -> None:
-        models_combined = {
+    def _get_combined_models_dict(self):
+        return {
             "embedding": self.models_embedding,
             "classification": self.models_classification,
         }
-        for task, models_dict in models_combined.items():
+
+    def cache_models(self) -> None:
+        for task, models_dict in self._get_combined_models_dict.items():
             for name, info in tqdm(models_dict.items(), desc=f"Caching {task} models"):
                 if not self.is_cached(name):
                     model = info["model"]
@@ -98,3 +101,19 @@ class ModelCache:
                     tqdm.write(f"Cached {model} to {cache_location}")
                 else:
                     tqdm.write(f"Found {name} in {self.cache_dir}")
+
+    def are_models_cached(self, task: model_tasks) -> bool:
+        models_dict = self._get_combined_models_dict()[task]
+        for name, _ in models_dict.items():
+            if not self.is_cached(name):
+                raise FileNotFoundError(f"Model {name} not found in {self.cache_dir}")
+        return True
+
+    def get_models_with_paths(self, task: model_tasks) -> Dict[str, Any]:
+        if self.are_models_cached(task):
+            models_dict = self._get_combined_models_dict()[task]
+            models_dict_w_paths = {}
+            for name, info in models_dict.items():
+                models_dict_w_paths[name] = info
+                models_dict_w_paths[name]["path"] = self.get_cache_path(name)
+            return models_dict_w_paths
