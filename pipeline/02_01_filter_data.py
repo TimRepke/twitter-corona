@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 from tqdm import tqdm
-from utils.io import exit_if_exists
+from utils.io import count_tweets, exit_if_exists
 
 
 def is_relevant(tweet, only_en, min_tokens, max_hashtags):
@@ -48,19 +48,20 @@ def filter_dataset(
         num_lines = 0
         n_duplicates = 0
         n_irrelevant = 0
-        print('Filter and remove duplicates...')
         with open(source_f, 'r') as f_in, \
                 open(relevance_f, 'w') as f_rel_out, \
                 open(irrelevance_f, 'w') as f_irrel_out:
             hashes = set()
-            for line_i, line in tqdm(enumerate(f_in)):
+            total_lines = count_tweets(f_in)
+            for line_i, line in tqdm(enumerate(f_in), total=total_lines, desc="Filtering / removing duplicates"):
                 tweet_o = json.loads(line)
                 num_lines += 1
 
                 is_en = (not only_en) or (only_en and tweet_o['lang'] != 'en')
                 has_text = tweet_o['text'] is not None
-                has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= min_tokens
-                has_max_hashtags = tweet_o['meta']['n_hashtags'] <= max_hashtags
+                if has_text:
+                    has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= min_tokens
+                    has_max_hashtags = tweet_o['meta']['n_hashtags'] <= max_hashtags
 
                 # if is_relevant(tweet_o):
                 if is_en and has_text and has_min_tokens and has_max_hashtags:

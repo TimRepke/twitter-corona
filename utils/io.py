@@ -10,6 +10,7 @@ def count_tweets(opened_file: TextIO):
     print(f"Counting tweets...")
     num_lines = sum(1 for _ in opened_file)
     print(f"  - File contains {num_lines} tweets.")
+    opened_file.seek(0)
     return num_lines
 
 
