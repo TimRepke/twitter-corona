@@ -113,7 +113,7 @@ def classify_tweets(
     dataset: str,
     limit: int,
     skip_first_n_lines: int,
-    batch_size: bool,
+    batch_size: int,
     source_f: Optional[str] = None,
     target_f: Optional[str] = None,
     models: Optional[Dict[str, Any]] = None
