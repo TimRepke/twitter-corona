@@ -4,12 +4,13 @@ import math
 import os
 
 from tqdm import tqdm
+from typing import TextIO
 
-def count_tweets(file_path):
-    print(f"Counting tweets in {file_path}...")
-    with open(file_path) as f:
-        num_lines = sum(1 for l in f)
-        print(f"  - File contains {num_lines} tweets.")
+def count_tweets(opened_file: TextIO):
+    print(f"Counting tweets...")
+    num_lines = sum(1 for _ in opened_file)
+    print(f"  - File contains {num_lines} tweets.")
+    return num_lines
 
 
 def exit_if_exists(file_path: str):
@@ -20,26 +21,24 @@ def exit_if_exists(file_path: str):
         exit(1)
 
 
-def produce_batches(file_path: str, batch_size: int, init_skip: int=0):
-    print("Counting tweets...")
-    num_lines = sum(1 for l in file_path)
-    print(f"  - Source file contains {num_lines} tweets.")
+def produce_batches(opened_file: TextIO, batch_size: int, init_skip: int=0):
+    num_lines = count_tweets(opened_file)
     n_batches = math.ceil(num_lines / batch_size)
-    file_path.seek(0)
+    opened_file.seek(0)
 
     line_num = 0
     for _ in range(init_skip):
-        next(file_path)
+        next(opened_file)
         line_num += 1
 
-    for batch_i in range(n_batches):
+    for batch_i in tqdm(range(n_batches)):
         tqdm.write(
             f"===== PROCESSING BATCH {batch_i + 1} ({(batch_i + 1) * batch_size}/{num_lines}) ====="
         )
 
         tweets = []
         while len(tweets) < batch_size and line_num < num_lines:
-            tweets.append(json.loads(next(file_path)))
+            tweets.append(json.loads(next(opened_file)))
             line_num += 1
 
         tqdm.write(
