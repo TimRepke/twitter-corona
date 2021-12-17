@@ -63,6 +63,8 @@ def get_urls(s):
 
 
 def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True):
+    if s is None:
+        return s
     if remove_urls:
         s = remove_url(s)
     if remove_hashtags:
