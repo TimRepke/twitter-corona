@@ -116,6 +116,7 @@ def classify_tweets(
     batch_size: int,
     source_f: Optional[str] = None,
     target_f: Optional[str] = None,
+    use_model_cache: bool = False,
     models: Optional[Dict[str, Any]] = None
 ):
 
@@ -136,8 +137,9 @@ def classify_tweets(
             for model_name, info in models.items():
                 start = time.time()
                 tqdm.write(f"[{datetime.now()}] Applying model {model_name}...")
+                key_to_use = "path" if use_model_cache else "model"
                 results[model_name] = assess_tweets(
-                    texts, model=info["model"], labels=info["labels"]
+                    texts, model=info[key_to_use], labels=info["labels"]
                 )
                 secs = time.time() - start
                 tqdm.write(f"  - Done after {secs // 60:.0f}m {secs % 60:.0f}s")

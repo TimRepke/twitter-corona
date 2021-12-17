@@ -115,5 +115,5 @@ class ModelCache:
             models_dict_w_paths = {}
             for name, info in models_dict.items():
                 models_dict_w_paths[name] = info
-                models_dict_w_paths[name]["path"] = self.get_cache_path(name)
+                models_dict_w_paths[name]["path"] = str(self.get_cache_path(name))
             return models_dict_w_paths
