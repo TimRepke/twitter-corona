@@ -21,6 +21,7 @@ def embed_tweets(
     model: str,
     limit: int,
     include_hashtags: bool,
+    verbose: bool = True,
     source_f: Optional[str] = None,
     target_f: Optional[str] = None,
 ):
@@ -44,7 +45,7 @@ def embed_tweets(
 
     print("Embedding texts...")
     model = SentenceTransformerBackend(model)
-    embeddings = model.embed_documents(texts, verbose=True)
+    embeddings = model.embed_documents(texts, verbose=verbose)
 
     print("Storing embeddings...")
     np.save(target_f, embeddings)
