@@ -18,10 +18,11 @@ ENV_NAME=your-env-name
 # Common
 DATASET=your_dataset
 SOURCE_FILE=tweets_clean_filtered.jsonl
-CACHE_SUBDIR=model_cache
+MODEL_CACHE_SUBDIR=model_cache
 
 # Task selection
-TASK=embed # must be either 'embed' or 'classify'
+# must be either 'embeddings' or 'classification'
+TASK=embeddings
 
 # Embedding
 MODEL_E=bertweet

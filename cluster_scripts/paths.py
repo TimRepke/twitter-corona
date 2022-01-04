@@ -12,7 +12,7 @@ def get_paths_from_environment():
     work_dir = Path(os.environ["WORKDIR"])
     dataset = os.environ["DATASET"]
     source_file = Path(os.environ["SOURCE_FILE"])
-    model_cache_dir = Path(os.environ["CACHE_SUBDIR"])
+    model_cache_dir = Path(os.environ["MODEL_CACHE_SUBDIR"])
     file_embeddings = os.environ["TARGET_E"]
     file_classification = os.environ["TARGET_C"]
     return {

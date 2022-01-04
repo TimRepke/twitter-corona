@@ -67,7 +67,7 @@ class ModelCache:
         }
 
     def cache_models(self) -> None:
-        for task, models_dict in self._get_combined_models_dict.items():
+        for task, models_dict in self._get_combined_models_dict().items():
             for name, info in tqdm(models_dict.items(), desc=f"Caching {task} models"):
                 if not self.is_cached(name):
                     model = info["model"]
