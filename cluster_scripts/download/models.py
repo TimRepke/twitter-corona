@@ -6,11 +6,10 @@ from tqdm.auto import tqdm
 from transformers import (AutoModel, AutoModelForSequenceClassification,
                           AutoTokenizer)
 
-pipe_classify = importlib.import_module("pipeline.03_02_classify_data")
-
 from typing import Any, Dict, Literal, Optional
 
 from cluster_scripts.paths import path_like
+from pipeline.models.classification import MODELS
 
 json_like = Dict[str, Any]
 model_tasks = Literal["embedding", "classification"]
@@ -22,8 +21,7 @@ DEFAULT_EMBEDDING = {
     }
 }
 
-DEFAULT_CLASSIFICATION = pipe_classify.MODELS
-
+DEFAULT_CLASSIFICATION = MODELS
 
 class ModelCache:
     """Class that controls the model caching process.
