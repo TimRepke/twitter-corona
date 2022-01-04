@@ -12,20 +12,20 @@
 #SBATCH --mail-type=END,FAIL
 
 # load the anaconda module
-# module load anaconda/2020.11
+module load anaconda/2020.11
 
 # activate custom environment
-# source activate $WORKDIR/$ENV_NAME
+source activate $WORKDIR/$ENV_NAME
 
 # set env variables
 export PYTHONPATH=$PYTHONPATH:$HOME/twitter-corona/
 export TRANSFORMERS_OFFLINE=1
 
 # run the python script
-if [ "$TASK" == "embed" ]; then
+if [ "$TASK" == "embeddings" ]; then
     python $HOME/twitter-corona/cluster_scripts/embed.py
-elif [ "$TASK" == "classify" ]; then
+elif [ "$TASK" == "classification" ]; then
     python $HOME/twitter-corona/cluster_scripts/classify.py
-else; then
+else
     echo "Task ${TASK} is not implemented yet."
 fi
