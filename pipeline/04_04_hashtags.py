@@ -25,7 +25,7 @@ def line2tweet(line):
 
 
 # DATASET = 'geoengineering'
-DATASET = 'climate'
+DATASET = 'climate2'
 LIMIT = 1000000
 SOURCE_FILE = f'data/{DATASET}/tweets_filtered_{LIMIT}.jsonl'
 
@@ -37,7 +37,7 @@ VECTORISER = ['tfidf', 'count'][0]
 MODE = ['hashtags', 'tokens', 'mixed'][0]
 
 FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
-FORMAT = 'monthly'
+FORMAT = 'weekly'
 GROUPING = FORMATS[FORMAT]
 
 TOKEN_PRINT_LIMIT = 20
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         (datetime.date(year=2018, month=8, day=20), 'Greta'),  # Greta Thunberg started her strike
         (datetime.date(year=2018, month=12, day=2), 'COP24 Katowice'),  # COP24 in Poland 2-15 Dec
         (datetime.date(year=2019, month=9, day=1), 'Australian Bushfires'),  # out-of-control fires sprung up
-        (datetime.date(year=2019, month=12, day=2), 'COP25 Madrid'),  # COP25 Madrid, Spain,  2-13 Dec 2019
+        # (datetime.date(year=2019, month=12, day=2), 'COP25 Madrid'),  # COP25 Madrid, Spain,  2-13 Dec 2019
         (datetime.date(year=2019, month=12, day=24), 'First Covid Case'),  # First patient in Wuhan Hospital
         (datetime.date(year=2020, month=3, day=11), 'Declared Pandemic'),  # WHO declared COVID-19 as pandemic
         (datetime.date(year=2020, month=12, day=27), 'Vaccine Rollout'),  # EU officially began vaccine rollout
@@ -134,7 +134,7 @@ if __name__ == '__main__':
                'group': dt.strftime(GROUPING),
                'group_idx': groups.index(dt.strftime(GROUPING)),
                'text': txt}
-              for dt, txt in events]
+              for dt, txt in events if dt.strftime(GROUPING) in groups]
 
     for event in events:
         fig.add_hline(y=event['group_idx'],

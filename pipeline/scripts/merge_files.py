@@ -24,7 +24,7 @@ def format_tweet(o):
     o['quotes_count'] = o['public_metrics']['quote_count']
 
     if 'entities' in o:
-        o['urls'] = [e['expanded_url'] for e in o['entities'].get('url', [])]
+        o['urls'] = [e['expanded_url'] for e in o['entities'].get('urls', [])]
         del o['entities']
     if 'referenced_tweets' in o:
         del o['referenced_tweets']

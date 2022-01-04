@@ -2,14 +2,19 @@ import os
 from tqdm import tqdm
 
 # DATASET = 'geoengineering'
-DATASET = 'climate'
+DATASET = 'climate2'
 
 ONLY_EN = True
+ALLOW_LANG_NULL = True
 MIN_TOKENS = 4
 MAX_HASHTAGS = 5
+FROM_DATE = '2018-01'
+TO_DATE = None
 
-RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_{ONLY_EN}_{MIN_TOKENS}_{MAX_HASHTAGS}.txt'
-IRRELEVANCE_FILE = f'data/{DATASET}/tweets_irrelevant_{ONLY_EN}_{MIN_TOKENS}_{MAX_HASHTAGS}.txt'
+RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_{ONLY_EN}_{ALLOW_LANG_NULL}_{MIN_TOKENS}_' \
+                 f'{MAX_HASHTAGS}_{FROM_DATE}_{TO_DATE}.txt'
+IRRELEVANCE_FILE = f'data/{DATASET}/tweets_irrelevant_{ONLY_EN}_{ALLOW_LANG_NULL}_{MIN_TOKENS}_' \
+                   f'{MAX_HASHTAGS}_{FROM_DATE}_{TO_DATE}.txt'
 
 with open(RELEVANCE_FILE) as f_rel, open(IRRELEVANCE_FILE) as f_irrel:
     print('Reading data...')
@@ -36,3 +41,7 @@ with open(RELEVANCE_FILE) as f_rel, open(IRRELEVANCE_FILE) as f_irrel:
     print(f'too many hashtags: {hashtags:,} ({hashtags / total:.2%})')
     hs = sum([i[3] and i[4] for i in nondup_irrel])
     print(f'too short and too many hashtags: {hs:,} ({hs / total:.2%})')
+    pfd = sum([not i[5] for i in nondup_irrel])
+    print(f'pre from date: {pfd:,} ({pfd / total:.2%})')
+    ptd = sum([not i[6] for i in nondup_irrel])
+    print(f'past to date: {ptd:,} ({ptd / total:.2%})')

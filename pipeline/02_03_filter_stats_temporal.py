@@ -14,7 +14,7 @@ import os
 from collections import defaultdict
 
 # DATASET = 'geoengineering'
-DATASET = 'climate'
+DATASET = 'climate2'
 SOURCE_FILE = f'data/{DATASET}/tweets_clean.jsonl'
 
 TARGET_FOLDER = f'data/{DATASET}/stats'
@@ -48,16 +48,16 @@ if __name__ == '__main__':
         hashes = set()
         for line_i, line in tqdm(enumerate(f_in)):
             tweet_o = json.loads(line)
-
-            is_en = tweet_o['lang'] != 'en'
-            is_en_or_null = is_en or tweet_o['lang'] is None
+            lang = tweet_o.get('lang', None)
+            is_en = lang == 'en'
+            is_en_or_null = is_en or lang is None
             has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= MIN_TOKENS
             has_max_hashtags = tweet_o['meta']['n_hashtags'] <= MAX_HASHTAGS
 
             grp = s2time(tweet_o['created_at']).strftime(FORMAT)
 
             groups[grp]['total'] += 1
-            if is_en and has_min_tokens and has_max_hashtags:
+            if is_en_or_null and has_min_tokens and has_max_hashtags:
                 h = get_hash(tweet_o)
                 if h not in hashes:
                     # relevant and non-duplicate
@@ -70,7 +70,7 @@ if __name__ == '__main__':
                 groups[grp]['not_relevant'] += 1
                 if not is_en:
                     groups[grp]['not_en'] += 1
-                    if tweet_o['lang'] is None:
+                    if lang is None:
                         groups[grp]['lang_null'] += 1
                 if not has_min_tokens:
                     groups[grp]['leq_min_tokens'] += 1
