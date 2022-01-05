@@ -51,8 +51,8 @@ def classify_tweets(
 
     exit_if_exists(target_f)
 
-    with open(source_f) as f_in, open(target_f, "w") as f_out:
-        for tweets_batch in tqdm(produce_batches(f_in, batch_size, skip_first_n_lines)):
+    with open(target_f, "w") as f_out:
+        for tweets_batch in tqdm(produce_batches(source_f, batch_size, skip_first_n_lines)):
             texts = [t["clean_text"] for t in tweets_batch]
 
             results = {}
