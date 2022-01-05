@@ -24,3 +24,14 @@ def download_from_owncloud(
     print(f"Downloading {remote_path} from {domain}...")
     oc.get_file(remote_path=remote_path, local_file=str(output_path))
     print(f"Downloaded {remote_path} to {local_path}")
+
+
+def upload_to_owncloud(
+    remote_path: str, local_path: str, domain: str, user: str, password: str
+):
+    oc = owncloud.Client(domain)
+    oc.login(user_id=user, password=password)
+    oc.mkdir(str(Path(remote_path).parent))
+    print(f"Uploading {local_path} to {domain}/{remote_path}...")
+    oc.put_file(remote_path, local_path)
+    print(f"Done.")

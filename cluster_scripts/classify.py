@@ -1,6 +1,7 @@
 import importlib
 import os
 
+from cluster_scripts.download.data import upload_to_owncloud
 from cluster_scripts.download.models import ModelCache
 from cluster_scripts.paths import (check_for_cache_dir,
                                    get_paths_from_environment, path_like)
@@ -44,3 +45,12 @@ if __name__ == "__main__":
         skip_first_n_lines=int(os.environ["SKIP_FIRST_N_LINES"]),
         batch_size=int(os.environ["BATCH_SIZE"]),
     )
+
+    if bool(os.getenv("UPLOAD")):
+        upload_to_owncloud(
+            remote_path=str(paths["upload"] / paths["classification"].name),
+            local_path=str(paths["classification"]),
+            domain=os.getenv("OC_DOMAIN"),
+            user=os.getenv("OC_USER"),
+            password=os.getenv("OC_PW")
+        )
