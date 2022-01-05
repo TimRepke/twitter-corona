@@ -6,7 +6,7 @@ from tqdm import tqdm
 from typing import TextIO, Optional
 
 
-def count_tweets(file_path: TextIO, echo: bool = False):
+def count_tweets(file_path: str, echo: bool = False):
     if echo:
         print(f'Counting tweets in {file_path}...')
     with open(file_path) as f:
