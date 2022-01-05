@@ -4,7 +4,7 @@ import math
 import os
 
 from tqdm import tqdm
-from typing import TextIO
+from typing import TextIO, Optional
 
 def count_tweets(opened_file: TextIO):
     print(f"Counting tweets...")
@@ -22,8 +22,14 @@ def exit_if_exists(file_path: str):
         exit(1)
 
 
-def produce_batches(opened_file: TextIO, batch_size: int, init_skip: int=0):
+def produce_batches(opened_file: TextIO, batch_size: int, init_skip: int=0, limit: Optional[int] = None):
     num_lines = count_tweets(opened_file)
+
+    if limit:
+        if limit < num_lines:
+            print(f'Limit requested, will only use the first {limit} lines!')
+            num_lines = limit
+
     n_batches = math.ceil(num_lines / batch_size)
     opened_file.seek(0)
 
