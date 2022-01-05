@@ -13,7 +13,7 @@ def classify_on_the_cluster(
     source_f: path_like,
     target_f: path_like,
     cache_dir: path_like,
-    limit: str,
+    limit: int,
     skip_first_n_lines: int,
     batch_size: int,
 ):
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     paths = get_paths_from_environment()
 
     classify_on_the_cluster(
-        dataset=os.environ["DATASET"],
+        dataset=str(os.environ["DATASET"]),
         source_f=paths["source"],
         target_f=paths["classification"],
         cache_dir=paths["cache"],

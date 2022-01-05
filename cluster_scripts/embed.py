@@ -36,11 +36,11 @@ if __name__ == "__main__":
     paths = get_paths_from_environment()
 
     embed_on_the_cluster(
-        dataset=os.getenv("DATASET"),
+        dataset=str(os.getenv("DATASET")),
         source_f=paths["source"],
         target_f=paths["embeddings"],
-        model_name=os.getenv("MODEL_E"),
+        model_name=str(os.environ("MODEL_E")),
         cache_dir=paths["cache"],
-        limit=os.getenv("LIMIT_E"),
-        include_hashtags=os.getenv("INCLUDE_HASHTAGS"),
+        limit=int(os.environ("LIMIT_E")),
+        include_hashtags=int(os.environ("INCLUDE_HASHTAGS")),
     )
