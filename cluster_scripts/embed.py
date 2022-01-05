@@ -27,7 +27,7 @@ def embed_on_the_cluster(
             model=mc.get_cache_path(model_name),
             limit=limit,
             include_hashtags=include_hashtags,
-            verbose=False
+            verbose=True
         )
 
 
