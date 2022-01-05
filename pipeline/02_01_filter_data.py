@@ -21,26 +21,28 @@ def get_hash(tweet):
     return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
 
 
-def filter_dataset(
-    dataset: str,
-    limit: int,
-    only_en: bool,
-    min_tokens: int,
-    max_hashtags: int,
-    relevance_f: Optional[str] = None,
-    irrelevance_f: Optional[str] = None,
-    source_f: Optional[str] = None,
-    target_f: Optional[str] = None,
-):
-
+def filter_dataset(dataset: str,
+                   limit: int,
+                   only_en: bool,
+                   allow_lang_null: bool,
+                   min_tokens: int,
+                   max_hashtags: int,
+                   from_date: str = None,
+                   to_date: str = None,
+                   relevance_f: Optional[str] = None,
+                   irrelevance_f: Optional[str] = None,
+                   source_f: Optional[str] = None,
+                   target_f: Optional[str] = None):
     if source_f is None:
-        source_f = f"data/{dataset}/tweets_raw.jsonl"
+        source_f = f'data/{dataset}/tweets_clean.jsonl'
     if target_f is None:
-        target_f = f"data/{dataset}/tweets_filtered_{limit}.jsonl"
+        target_f = f'data/{dataset}/tweets_filtered_{limit}.jsonl'
     if relevance_f is None:
-        relevance_f = f"data/{dataset}/tweets_relevant_{only_en}_{min_tokens}_{max_hashtags}.txt"
+        relevance_f = f'data/{dataset}/tweets_relevant_{only_en}_{allow_lang_null}_{min_tokens}_' \
+                      f'{max_hashtags}_{from_date}_{to_date}.txt'
     if irrelevance_f is None:
-        irrelevance_f= f'data/{dataset}/tweets_irrelevant_{only_en}_{min_tokens}_{max_hashtags}.txt'
+        irrelevance_f = f'data/{dataset}/tweets_irrelevant_{only_en}_{allow_lang_null}_{min_tokens}_' \
+                        f'{max_hashtags}_{from_date}_{to_date}.txt'
 
     exit_if_exists(target_f)
 
@@ -55,26 +57,47 @@ def filter_dataset(
             total_lines = count_tweets(f_in)
             for line_i, line in tqdm(enumerate(f_in), total=total_lines, desc="Filtering / removing duplicates"):
                 tweet_o = json.loads(line)
+                # print(num_lines, tweet_o)
                 num_lines += 1
 
-                is_en = (not only_en) or (only_en and tweet_o['lang'] != 'en')
+                lang = tweet_o.get('lang', None)
+                if only_en and allow_lang_null:
+                    accept_lang = lang == 'en' or lang is None
+                elif only_en and not allow_lang_null:
+                    accept_lang = lang == 'en'
+                elif not only_en and allow_lang_null:
+                    accept_lang = True
+                else:  # not only_en and not allow_lang_null
+                    accept_lang = lang is not None
+
+                if from_date is not None:
+                    past_from_date = tweet_o['created_at'][:len(from_date)] >= from_date
+                else:
+                    past_from_date = True
+
+                if to_date is not None:
+                    pre_to_date = tweet_o['created_at'][:len(to_date)] <= to_date
+                else:
+                    pre_to_date = True
+
                 has_text = tweet_o['text'] is not None
                 if has_text:
                     has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= min_tokens
                     has_max_hashtags = tweet_o['meta']['n_hashtags'] <= max_hashtags
 
                 # if is_relevant(tweet_o):
-                if is_en and has_text and has_min_tokens and has_max_hashtags:
+                if accept_lang and has_text and has_min_tokens and has_max_hashtags and past_from_date and pre_to_date:
                     h = get_hash(tweet_o)
                     if h not in hashes:
                         # relevant and non-duplicate
                         f_rel_out.write(f'{line_i}\n')
                     else:
-                        f_irrel_out.write(f'{line_i}|1|0|0|0|0\n')
+                        f_irrel_out.write(f'{line_i}|1|0|0|0|0|0|0\n')
                         n_duplicates += 1
                     hashes.add(h)
                 else:
-                    f_irrel_out.write(f'{line_i}|0|{is_en:d}|{has_text:d}|{has_min_tokens:d}|{has_max_hashtags:d}\n')
+                    f_irrel_out.write(f'{line_i}|0|{accept_lang:d}|{has_text:d}|{has_min_tokens:d}|'
+                                      f'{has_max_hashtags:d}|{past_from_date:d}|{pre_to_date:d}\n')
                     n_irrelevant += 1
             print(f'Read {num_lines:,} lines, found {n_duplicates:,} '
                   f'duplicates and {n_irrelevant:,} irrelevant tweets.')
@@ -107,15 +130,17 @@ def filter_dataset(
                     break
                 f_out.write(line)
             else:  # skip / ignore line
-                next(f_source)
+                next(f_rel)
             line_rel += 1
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     filter_dataset(
-        dataset="climate",  # 'geoengineering'
-        limit=10000,
+        dataset='climate2',  # 'geoengineering'
+        limit=1000000,
         only_en=True,
+        from_date='2018-01',
+        allow_lang_null=True,
         min_tokens=4,
         max_hashtags=5
     )
