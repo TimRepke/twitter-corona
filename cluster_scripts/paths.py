@@ -21,6 +21,7 @@ def get_paths_from_environment():
         "embeddings": work_dir / dataset / file_embeddings,
         "classification": work_dir / dataset / file_classification,
         "cache": work_dir / model_cache_dir,
+        "upload": Path('from_cluster')
     }
 
 

@@ -5,8 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from torch import cuda
 from tqdm import tqdm
+from datasets import Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers.pipelines import TextClassificationPipeline
+from transformers.pipelines.base import KeyDataset
 from utils.io import exit_if_exists, produce_batches
 
 from pipeline.models.classification import MODELS
@@ -24,7 +26,8 @@ def assess_tweets(texts: List[str], model, labels):
     device = 0 if cuda.is_available() else -1
     classifier = TextClassificationPipeline(
         model=pretrained_model, tokenizer=tokenizer, device=device)
-    output = classifier(texts)
+    dataset = Dataset.from_dict({'texts': texts})
+    output = [o for o in tqdm(classifier(KeyDataset(dataset, "texts")))]
     return [(o['label'], o['score']) for o in output]
 
 
