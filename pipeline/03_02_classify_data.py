@@ -1,27 +1,31 @@
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
-import numpy as np
-from adaptnlp import EasySequenceClassifier
+from torch import cuda
 from tqdm import tqdm
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers.pipelines import TextClassificationPipeline
 from utils.io import exit_if_exists, produce_batches
+
 from pipeline.models.classification import MODELS
 
 # https://github.com/dhs-gov/sentop/
 
 
 def assess_tweets(texts: List[str], model, labels):
-    def process_result(scores):
-        srt = np.argsort(scores)
-        # return [f'{labels[i]} ({scores[i]:.2f})' for i in reversed(srt)]
-        scores_lst = scores.tolist()
-        return [(labels[i], scores_lst[i]) for i in reversed(srt)]
-
-    classifier = EasySequenceClassifier()
-    res = classifier.tag_text(text=texts, model_name_or_path=model)
-    return [process_result(r) for r in res["probs"]]
+    pretrained_model = AutoModelForSequenceClassification.from_pretrained(
+        model, 
+        num_labels=len(labels),
+        label2id={k: i for i, k in enumerate(labels)},
+        id2label={i: k for i, k in enumerate(labels)})
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+    device = 0 if cuda.is_available() else -1
+    classifier = TextClassificationPipeline(
+        model=pretrained_model, tokenizer=tokenizer, device=device)
+    output = classifier(texts)
+    return [(o['label'], o['score']) for o in output]
 
 
 def classify_tweets(
@@ -29,9 +33,9 @@ def classify_tweets(
     limit: int,
     skip_first_n_lines: int,
     batch_size: int,
+    use_model_cache: bool = False,
     source_f: Optional[str] = None,
     target_f: Optional[str] = None,
-    use_model_cache: bool = False,
     models: Optional[Dict[str, Any]] = None
 ):
 
