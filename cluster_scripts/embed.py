@@ -39,8 +39,8 @@ if __name__ == "__main__":
         dataset=str(os.getenv("DATASET")),
         source_f=paths["source"],
         target_f=paths["embeddings"],
-        model_name=str(os.environ("MODEL_E")),
+        model_name=str(os.environ["MODEL_E"]),
         cache_dir=paths["cache"],
-        limit=int(os.environ("LIMIT_E")),
-        include_hashtags=int(os.environ("INCLUDE_HASHTAGS")),
+        limit=int(os.environ["LIMIT_E"]),
+        include_hashtags=int(os.environ["INCLUDE_HASHTAGS"]),
     )
