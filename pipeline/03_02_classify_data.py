@@ -1,119 +1,42 @@
 import json
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
-import numpy as np
-from adaptnlp import EasySequenceClassifier
+from torch import cuda
 from tqdm import tqdm
+from datasets import Dataset
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers.pipelines import TextClassificationPipeline
+from transformers.pipelines.base import KeyDataset
 from utils.io import exit_if_exists, produce_batches
+
+from pipeline.models.classification import MODELS
 
 # https://github.com/dhs-gov/sentop/
 
 
 def assess_tweets(texts: List[str], model, labels):
-    def process_result(scores):
-        srt = np.argsort(scores)
-        # return [f'{labels[i]} ({scores[i]:.2f})' for i in reversed(srt)]
-        scores_lst = scores.tolist()
-        return [(labels[i], scores_lst[i]) for i in reversed(srt)]
-
-    classifier = EasySequenceClassifier()
-    res = classifier.tag_text(text=texts, model_name_or_path=model)
-    return [process_result(r) for r in res["probs"]]
-
-
-MODELS = {
-    # to find more models, browse this page:
-    # https://huggingface.co/models?pipeline_tag=text-classification&sort=downloads
-    # Hint: the search function doesn't really work...
-    "cardiff-sentiment": {
-        # https://github.com/cardiffnlp/tweeteval/blob/main/datasets/sentiment/mapping.txt
-        "model": "cardiffnlp/twitter-roberta-base-sentiment",
-        "labels": ["negative", "neutral", "positive"],
-    },
-    "cardiff-emotion": {
-        # https://github.com/cardiffnlp/tweeteval/blob/main/datasets/emotion/mapping.txt
-        "model": "cardiffnlp/twitter-roberta-base-emotion",
-        "labels": ["anger", "joy", "optimism", "sadness"],
-    },
-    "cardiff-offensive": {
-        # https://github.com/cardiffnlp/tweeteval/blob/main/datasets/offensive/mapping.txt
-        "model": "cardiffnlp/twitter-roberta-base-offensive",
-        "labels": ["not-offensive", "offensive"],
-    },
-    "cardiff-stance-climate": {
-        # https://github.com/cardiffnlp/tweeteval/blob/main/datasets/stance/mapping.txt
-        "model": "cardiffnlp/twitter-roberta-base-stance-climate",
-        "labels": ["none", "against", "favor"],
-    },
-    "geomotions-orig": {
-        # https://huggingface.co/monologg/bert-base-cased-goemotions-original/blob/main/config.json
-        "model": "monologg/bert-base-cased-goemotions-original",
-        "labels": [
-            "admiration",
-            "amusement",
-            "anger",
-            "annoyance",
-            "approval",
-            "caring",
-            "confusion",
-            "curiosity",
-            "desire",
-            "disappointment",
-            "disapproval",
-            "disgust",
-            "embarrassment",
-            "excitement",
-            "fear",
-            "gratitude",
-            "grief",
-            "joy",
-            "love",
-            "nervousness",
-            "neutral",
-            "optimism",
-            "pride",
-            "realization",
-            "relief",
-            "remorse",
-            "sadness",
-            "surprise",
-        ],
-    },
-    "geomotions-ekman": {
-        # https://huggingface.co/monologg/bert-base-cased-goemotions-ekman/blob/main/config.json
-        "model": "monologg/bert-base-cased-goemotions-ekman",
-        "labels": ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"],
-    },
-    # 'nlptown-sentiment': {
-    #     # https://huggingface.co/nlptown/bert-base-multilingual-uncased-sentiment/blob/main/config.json
-    #     'model': 'nlptown/bert-base-multilingual-uncased-sentiment',
-    #     'labels': ['1 star', '2 stars', '3 stars', '4 stars', '5 stars']
-    # },
-    "bertweet-sentiment": {
-        # https://huggingface.co/finiteautomata/bertweet-base-sentiment-analysis
-        "model": "finiteautomata/bertweet-base-sentiment-analysis",
-        "labels": ["negative", "neutral", "positive"],
-    },
-    "bertweet-emotions": {
-        # https://huggingface.co/finiteautomata/bertweet-base-emotion-analysis
-        "model": "finiteautomata/bertweet-base-emotion-analysis",
-        "labels": ["others", "joy", "sadness", "anger", "surprise", "disgust", "fear"],
-    },
-    # 'bert-sst2': {
-    #     # https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/blob/main/config.json
-    #     'model': 'distilbert-base-uncased-finetuned-sst-2-english',
-    #     'labels': ['negative', 'positive']
-    # }
-}
+    pretrained_model = AutoModelForSequenceClassification.from_pretrained(
+        model, 
+        num_labels=len(labels),
+        label2id={k: i for i, k in enumerate(labels)},
+        id2label={i: k for i, k in enumerate(labels)})
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+    device = 0 if cuda.is_available() else -1
+    classifier = TextClassificationPipeline(
+        model=pretrained_model, tokenizer=tokenizer, device=device)
+    dataset = Dataset.from_dict({'texts': texts})
+    output = [o for o in tqdm(classifier(KeyDataset(dataset, "texts")))]
+    return [(o['label'], o['score']) for o in output]
 
 
 def classify_tweets(
     dataset: str,
     limit: int,
     skip_first_n_lines: int,
-    batch_size: bool,
+    batch_size: int,
+    use_model_cache: bool = False,
     source_f: Optional[str] = None,
     target_f: Optional[str] = None,
     models: Optional[Dict[str, Any]] = None
@@ -128,16 +51,17 @@ def classify_tweets(
 
     exit_if_exists(target_f)
 
-    with open(source_f) as f_in, open(target_f, "w") as f_out:
-        for tweets_batch in tqdm(produce_batches(f_in, batch_size, skip_first_n_lines)):
+    with open(target_f, "w") as f_out:
+        for tweets_batch in tqdm(produce_batches(source_f, batch_size, skip_first_n_lines)):
             texts = [t["clean_text"] for t in tweets_batch]
 
             results = {}
             for model_name, info in models.items():
                 start = time.time()
                 tqdm.write(f"[{datetime.now()}] Applying model {model_name}...")
+                key_to_use = "path" if use_model_cache else "model"
                 results[model_name] = assess_tweets(
-                    texts, model=info["model"], labels=info["labels"]
+                    texts, model=info[key_to_use], labels=info["labels"]
                 )
                 secs = time.time() - start
                 tqdm.write(f"  - Done after {secs // 60:.0f}m {secs % 60:.0f}s")
