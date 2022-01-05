@@ -1,9 +1,8 @@
 import json
 import math
 import os
-from typing import TextIO
 from tqdm import tqdm
-from typing import TextIO, Optional
+from typing import Optional
 
 
 def count_tweets(file_path: str, echo: bool = False):
@@ -22,10 +21,14 @@ def exit_if_exists(file_path: str):
         exit(1)
 
 
-def produce_batches(file_path: str, batch_size: int, init_skip: int = 0):
-    print('Counting tweets...')
-    num_lines = count_tweets(file_path)
-    print(f'  - Source file contains {num_lines} tweets.')
+def produce_batches(file_path: str, batch_size: int, init_skip: int = 0, limit: Optional[int] = None):
+    num_lines = count_tweets(file_path, echo=True)
+
+    if limit:
+        if limit < num_lines:
+            print(f"Limit is set, will only use the first {limit} lines!")
+            num_lines = limit
+
     n_batches = math.ceil(num_lines / batch_size)
 
     with open(file_path, 'r') as f_in:
