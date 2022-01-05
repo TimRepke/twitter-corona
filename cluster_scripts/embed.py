@@ -45,7 +45,7 @@ if __name__ == "__main__":
         model_name=str(os.environ["MODEL_E"]),
         cache_dir=paths["cache"],
         limit=int(os.environ["LIMIT_E"]),
-        include_hashtags=int(os.environ["INCLUDE_HASHTAGS"]),
+        include_hashtags=bool(os.environ["INCLUDE_HASHTAGS"]),
     )
 
     if bool(os.getenv("UPLOAD")):
