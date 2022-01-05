@@ -5,10 +5,12 @@ which can be placed in the `cluster_scripts` directory. It should contain the fo
 
 ```
 # Owncloud
+# set upload to 1 to upload results to owncloud
 OC_DOMAIN=https://mycloud.mcc-berlin.net
 OC_USER=your-username
 OC_PW=your-password
 OC_FILE_PATH=path-to-jsonl-file-to-download
+UPLOAD=1
 
 # SLURM
 MAIL_USER=email-for-slurm-notifications
