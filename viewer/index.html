@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tweet Explorer</title>
+    <script src="lib/vue.3.2.28.js"></script>
+    <!--script src="https://unpkg.com/vue@3.2.28/dist/vue.global.js"></script-->
+    <link href="lib/bootstrap.5.1.3.css" type="text/css" rel="stylesheet">
+    <!--link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous"-->
+    <!--link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"-->
+    <link rel="stylesheet" href="lib/bootstrap-icons.1.7.2.css">
+    <style>
+        /* Tooltip container from https://www.w3schools.com/css/css_tooltip.asp*/
+        .ttooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Tooltip text */
+        .ttooltip .ttooltiptext {
+            visibility: hidden;
+            width: 120px;
+            bottom: 130%;
+            left: 50%;
+            margin-left: -60px;
+            background-color: black;
+            color: #fff;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+
+            /* Position the tooltip text - see examples below! */
+            position: absolute;
+            z-index: 1;
+        }
+
+        /* Show the tooltip text when you mouse over the tooltip container */
+        .ttooltip:hover .ttooltiptext {
+            visibility: visible;
+        }
+
+        .ttooltip .ttooltiptext::after {
+            content: " ";
+            position: absolute;
+            top: 100%; /* At the bottom of the tooltip */
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: black transparent transparent transparent;
+        }
+
+        main {
+            display: flex;
+            flex-wrap: nowrap;
+            height: 100vh;
+            max-height: 100vh;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .scrollarea {
+            overflow-y: auto;
+        }
+
+        .sidebar {
+            width: 380px;
+            box-shadow: 0 0.5em 1.5em rgb(0 0 0 / 10%), 0 0.125em 0.5em rgb(0 0 0 / 15%);
+            margin-right: 1rem;
+        }
+
+        .searchclear {
+            color: rgb(204, 204, 204);
+            z-index: 1000 !important;
+            margin-left: -3rem !important;
+        }
+    </style>
+</head>
+<body>
+<main id="app" class="d-flex flex-row">
+    <div class="d-flex flex-column align-items-stretch flex-shrink-0 bg-white sidebar" style="">
+        <div class="d-flex align-items-center flex-column flex-shrink-0 p-3 link-dark text-decoration-none border-bottom">
+            <div class="input-group">
+                <input id="search" class="form-control" placeholder="Search..." type="text"
+                       v-model="search"
+                       @keyup.enter="runSearch"
+                       style="padding-right: 3rem !important; "/>
+                <i class="btn bi-x-circle searchclear"
+                   @click="resetSearch"></i>
+            </div>
+            <small class="text-muted align-self-end mt-2">{{selectedTweets.length}}/{{tweets.length}}</small>
+        </div>
+
+        <ul class="list-group list-group-flush border-bottom scrollarea">
+            <li class="list-group-item  d-flex justify-content-between align-items-start list-group-item-action"
+                v-for="topic in filteredTopics"
+                :key="topic.id"
+                :class="{ active: isActive(topic.id) }"
+                @click="selectTopic(topic.id)">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">Topic {{topic.id}}</div>
+                    {{topic.tfidf.slice(0, 100)}}
+                </div>
+                <span class="badge bg-primary rounded-pill">{{topic.n_tweets}}</span>
+            </li>
+        </ul>
+    </div>
+    <div class="d-flex flex-column flex-shrink-1">
+        <div class="d-flex flex-row p-3" v-if="selectedTopic !== null && searchResult === null">
+            <div class="card shadow-sm p-3 bg-body rounded">
+                <div class="row">
+                    <div class="col-6">
+                        <p class="fw-bold">TF-IDF Tokens</p>
+                        <p>{{topics[selectedTopic].tfidf}}</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="fw-bold">MMR Tokens</p>
+                        <p>{{topics[selectedTopic].mmr}}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-2">
+                        <select class="form-select form-select-sm" aria-label=".form-select-sm example"
+                                v-model="selectedDistribution">
+                            <option v-for="opt in distributionOptions">{{opt}}</option>
+                        </select>
+                    </div>
+                    <div class="col-10">
+                            <span v-for="(td, index) in selectedDistributionNormed"
+                                  class="ttooltip"
+                                  style="width: 1.2em; height: 1.5em; display: inline-block;
+                                  border-right:1px solid #c2c1c1;"
+                                  :style="{backgroundColor: `rgba(0, 0, 1, ${td.normed})`}">
+                                &nbsp;
+                                <span class="ttooltiptext">{{td.group}}<br/>{{td.raw}}</span>
+                            </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <nav class="d-flex flex-row justify-content-center" v-if="pages.length>1">
+            <ul class="pagination">
+                <li class="page-item" :class="{disabled: selectedPage===0}">
+                    <span class="page-link" aria-label="Previous" role="button"
+                          @click="selectedPage = selectedPage>0 ? selectedPage-1 : 0">
+                        <span aria-hidden="true">&laquo;</span>
+                    </span>
+                </li>
+                <li class="page-item" v-for="page in pages"
+                    :class="{active: page===selectedPage}">
+                    <span role="button" class="page-link"
+                          @click="selectedPage = page">{{page + 1}}</span>
+                </li>
+                <li class="page-item" :class="{disabled: selectedPage===pages.length-1}">
+                    <span class="page-link" aria-label="Next" role="button"
+                          @click="selectedPage = selectedPage<pages.length-1 ? selectedPage+1 : selectedPage">
+                        <span aria-hidden="true">&raquo;</span>
+                    </span>
+                </li>
+            </ul>
+        </nav>
+        <div class="d-flex flex-row flex-wrap p-2 scrollarea">
+            <div class="card m-2 p-0" style="width: 20rem;"
+                 v-for="(tweet, index) in selectedTweetsPaged"
+                 :key="tweet.id">
+                <div class="card-body">
+                    <p>
+                        <small class="text-muted">
+                            <i class="bi-calendar4-event"></i> &nbsp; {{tweet.time.slice(0, 19).replace('T', ' ')}}
+                        </small>
+                        <a class="float-end" :href="`https://twitter.com/s/status/${tweet.id}`" target="_blank"><i
+                                class="bi-twitter"></i></a>
+                    </p>
+                    <p class="card-text">{{tweet.text}}</p>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <small class="text-muted">
+                        <i class="bi-share"></i> {{tweet.retweets}} &nbsp;
+                        <i class="bi-heart"></i> {{tweet.likes}} &nbsp;
+                        <i class="bi-reply"></i> {{tweet.replies}}
+                    </small>
+                    <small class="text-muted">
+                        <i class="bi-blockquote-left"></i> {{tweet.topic}}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script type="module">
+    // import {reactive} from 'vue'
+    import * as JsSearch from './lib/js-search.js';
+
+    let dumpFile = './dump_10000_minilm.json';
+    let urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('file')) {
+        dumpFile = urlParams.get('file');
+    }
+
+    let pageSize = 1000;
+    if (urlParams.has('pageSize')) {
+        pageSize = parseInt(urlParams.get('pageSize'));
+    }
+
+    let fetchObj = await fetch(dumpFile);
+    let dump = await fetchObj.json();
+
+    let index = new JsSearch.Search('id');
+    index.addIndex('text');
+    index.addDocuments(dump.tweets);
+
+    const Explorer = {
+        data() {
+            return {
+                tweets: dump.tweets,
+                groups: dump.groups,
+                topics: dump.topics.map((topic, index) => {
+                    topic.id = index;
+                    return topic;
+                }),
+                'index': index,
+                selectedPage: 0,
+                selectedTopic: 3,
+                search: '',
+                searchResult: null,
+                selectedDistribution: 'abs_raw',
+                distributionOptions: ['abs_raw', 'abs_likes', 'abs_replies', 'abs_retweets', 'abs_retweets_likes',
+                    'abs_retweets_likes_replies', 'col_raw', 'col_likes', 'col_replies', 'col_retweets',
+                    'col_retweets_likes', 'col_retweets_likes_replies', 'row_raw', 'row_likes',
+                    'row_replies', 'row_retweets', 'row_retweets_likes', 'row_retweets_likes_replies']
+            };
+        },
+        methods: {
+            isActive: function (i) {
+                return i === this.selectedTopic;
+            },
+            bgNorm: function (i) {
+                return `rgba(0, 0, 1, ${selectedDistributionNormed()[i]})`;
+            },
+            selectTopic: function (i) {
+                this.selectedTopic = this.selectedTopic === i ? null : i;
+                this.selectedPage = 0;
+            },
+            runSearch: function () {
+                this.selectedTopic = null;
+                this.searchResult = this.index.search(this.search);
+                this.selectedPage = 0;
+            },
+            resetSearch: function () {
+                this.search = '';
+                this.searchResult = null;
+                this.selectedPage = 0;
+            }
+        },
+        computed: {
+            selectedDistributionNormed: function () {
+                if (this.selectedTopic === null) return [];
+                let dist = this.topics[this.selectedTopic][this.selectedDistribution];
+                let max = Math.max(...dist);
+                let normed = dist.map(v => v / max);
+                return this.groups.map((g, i) => ({
+                    group: g,
+                    raw: dist[i],
+                    normed: normed[i]
+                }))
+            },
+            selectedTweets: function () {
+                if (this.searchResult === null) {
+                    return this.tweets
+                        .filter((tweet) => tweet.topic === this.selectedTopic)
+                        .sort((a, b) => a.time.localeCompare(b.time));
+                } else {
+                    return this.searchResult
+                        .filter((tweet) => this.selectedTopic === null || tweet.topic === this.selectedTopic)
+                        .sort((a, b) => a.time.localeCompare(b.time));
+                }
+            },
+            pages: function () {
+                return [...Array(Math.ceil(this.selectedTweets.length / pageSize)).keys()];
+            },
+            selectedTweetsPaged: function () {
+                if (this.selectedTweets.length > pageSize) {
+                    return this.selectedTweets.slice(this.selectedPage * pageSize, (this.selectedPage + 1) * pageSize);
+                } else {
+                    return this.selectedTweets;
+                }
+            },
+            filteredTopics: function () {
+                if (this.searchResult === null) {
+                    return this.topics;
+                } else {
+                    let topicCounts = this.searchResult.reduce(function (acc, curr) {
+                        acc[curr.topic] = acc[curr.topic] ? acc[curr.topic] + 1 : acc[curr.topic] = 1;
+                        return acc;
+                    }, {});
+
+                    return this.topics
+                        .filter((topic, index) => index in topicCounts)
+                        .map((topic) => {
+                            topic.n_tweets = topicCounts[topic.id];
+                            return topic;
+                        })
+                }
+            }
+        }
+    };
+
+    Vue.createApp(Explorer).mount('#app');
+</script>
+</body>
+</html>

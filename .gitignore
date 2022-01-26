@@ -9,3 +9,4 @@ data/
 **/.env
 .python-version
 *.code-workspace
+*.json
