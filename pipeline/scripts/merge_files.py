@@ -56,7 +56,7 @@ for file, t in tqdm(iterate_tweets('data/climate2/raw')):
 
 sort_group_keys = sorted(srt_groups.keys())
 print(f'Sorting by date in {len(sort_group_keys)} groups from {sort_group_keys[0]} to {sort_group_keys[-1]}...')
-with open('data/climate2/tweets_raw.json', 'w') as f_out:
+with open('data/climate2/tweets_raw.jsonl', 'w') as f_out:
     for sort_group in sort_group_keys:
         print(f'Sorting tweets with partial date {sort_group}')
         tweets = [format_tweet(t) for t in get_group('data/climate2/raw', sort_group)]

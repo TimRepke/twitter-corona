@@ -18,7 +18,8 @@ def is_relevant(tweet, only_en, min_tokens, max_hashtags):
 
 
 def get_hash(tweet):
-    return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
+    # return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
+    return hashlib.md5(f'{tweet["clean_text"].lower()}'.encode()).digest()
 
 
 def filter_dataset(dataset: str,
@@ -54,7 +55,7 @@ def filter_dataset(dataset: str,
                 open(relevance_f, 'w') as f_rel_out, \
                 open(irrelevance_f, 'w') as f_irrel_out:
             hashes = set()
-            total_lines = count_tweets(f_in)
+            total_lines = count_tweets(source_f)
             for line_i, line in tqdm(enumerate(f_in), total=total_lines, desc="Filtering / removing duplicates"):
                 tweet_o = json.loads(line)
                 # print(num_lines, tweet_o)
@@ -91,10 +92,10 @@ def filter_dataset(dataset: str,
                     if h not in hashes:
                         # relevant and non-duplicate
                         f_rel_out.write(f'{line_i}\n')
+                        hashes.add(h)
                     else:
                         f_irrel_out.write(f'{line_i}|1|0|0|0|0|0|0\n')
                         n_duplicates += 1
-                    hashes.add(h)
                 else:
                     f_irrel_out.write(f'{line_i}|0|{accept_lang:d}|{has_text:d}|{has_min_tokens:d}|'
                                       f'{has_max_hashtags:d}|{past_from_date:d}|{pre_to_date:d}\n')
@@ -140,6 +141,7 @@ if __name__ == '__main__':
         limit=1000000,
         only_en=True,
         from_date='2018-01',
+        to_date='2022-01',
         allow_lang_null=True,
         min_tokens=4,
         max_hashtags=5

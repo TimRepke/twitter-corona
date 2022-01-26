@@ -9,10 +9,10 @@ from tqdm import tqdm
 def process_tweet(tweet):
     if tweet["text"]:
         tweet['clean_text'] = clean_tweet(tweet['text'],
-                                        remove_hashtags=True,
-                                        remove_urls=True,
-                                        remove_mentions=True,
-                                        remove_nonals=True)
+                                          remove_hashtags=True,
+                                          remove_urls=True,
+                                          remove_mentions=True,
+                                          remove_nonals=True)
         hashtags = get_hashtags(tweet['text'])
         urls = get_urls(tweet['text'])
         mentions = get_mentions(tweet['text'])

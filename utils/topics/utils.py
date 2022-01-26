@@ -10,6 +10,11 @@ from typing import Literal
 FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
 
 
+def date2group(dt, fmt):
+    timestamp = datetime.strptime(dt[:19], '%Y-%m-%dT%H:%M:%S')
+    return timestamp.strftime(FORMATS[fmt])
+
+
 class FrankenTopicUtils:
     def __init__(self,
                  tweets: list[dict],
@@ -69,6 +74,7 @@ class FrankenTopicUtils:
                   keyword_source: Literal['mmr', 'tfidf'] = 'mmr',
                   n_keywords_per_topic_legend: int = 3,
                   n_keywords_per_topic_map: int = 6,
+                  include_text: bool = True,
                   colormap=glasbey):
 
         fig = go.Figure()
@@ -104,17 +110,18 @@ class FrankenTopicUtils:
                 text=texts
             ))
 
-            positions = pts[np.random.choice(pts.shape[0],
-                                             size=min(n_keywords_per_topic_map, pts.shape[0]),
-                                             replace=False)]
-            keywords_map = self.get_keywords(topic, n_keywords_per_topic_map, keyword_source)
-            for tw, pos in zip(keywords_map[:n_keywords_per_topic_map], positions):
-                fig.add_annotation(x=pos[0], y=pos[1], text=tw, showarrow=False,
-                                   font={
-                                       'family': "sans-serif",
-                                       'color': "#000000",
-                                       'size': 14
-                                   })
+            if include_text:
+                positions = pts[np.random.choice(pts.shape[0],
+                                                 size=min(n_keywords_per_topic_map, pts.shape[0]),
+                                                 replace=False)]
+                keywords_map = self.get_keywords(topic, n_keywords_per_topic_map, keyword_source)
+                for tw, pos in zip(keywords_map[:n_keywords_per_topic_map], positions):
+                    fig.add_annotation(x=pos[0], y=pos[1], text=tw, showarrow=False,
+                                       font={
+                                           'family': "sans-serif",
+                                           'color': "#000000",
+                                           'size': 14
+                                       })
 
         fig.update_traces(mode='markers', marker_line_width=1, marker_size=3, selector={'type': 'scatter'})
         fig.update_layout(title='Styled Scatter',
@@ -129,8 +136,7 @@ class FrankenTopicUtils:
         groups = {}
         for tw, to in zip(self.tweets, self.topic_model.labels):
             if (not skip_topic_zero) or (skip_topic_zero and to != 0):
-                timestamp = datetime.strptime(tw['created_at'][:19], '%Y-%m-%dT%H:%M:%S')
-                group = timestamp.strftime(FORMATS[date_format])
+                group = date2group(tw['created_at'], date_format)
 
                 if group not in groups:
                     groups[group] = np.zeros_like(self.topic_ids)

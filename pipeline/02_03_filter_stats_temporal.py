@@ -29,7 +29,8 @@ FORMAT = FORMATS[DATE_FORMAT]
 
 
 def get_hash(tweet):
-    return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
+    # return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
+    return hashlib.md5(f'{tweet["clean_text"].lower()}'.encode()).digest()
 
 
 if __name__ == '__main__':

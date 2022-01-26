@@ -9,7 +9,7 @@ ALLOW_LANG_NULL = True
 MIN_TOKENS = 4
 MAX_HASHTAGS = 5
 FROM_DATE = '2018-01'
-TO_DATE = None
+TO_DATE = '2022-01'
 
 RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_{ONLY_EN}_{ALLOW_LANG_NULL}_{MIN_TOKENS}_' \
                  f'{MAX_HASHTAGS}_{FROM_DATE}_{TO_DATE}.txt'
@@ -43,5 +43,5 @@ with open(RELEVANCE_FILE) as f_rel, open(IRRELEVANCE_FILE) as f_irrel:
     print(f'too short and too many hashtags: {hs:,} ({hs / total:.2%})')
     pfd = sum([not i[5] for i in nondup_irrel])
     print(f'pre from date: {pfd:,} ({pfd / total:.2%})')
-    ptd = sum([not i[6] for i in nondup_irrel])
+    ptd = sum([i[6] for i in nondup_irrel])
     print(f'past to date: {ptd:,} ({ptd / total:.2%})')

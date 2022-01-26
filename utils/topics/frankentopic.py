@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse.csr import csr_matrix
 from typing import Type, Optional, Union, Literal
 from dataclasses import dataclass, asdict
-
+from tqdm import tqdm
 # from sklearn.cluster import SpectralClustering # don't use this, memory explodes
 # from spectralcluster import SpectralClusterer # don't use this, memory explodes
 from sklearn.cluster import KMeans
@@ -137,6 +137,7 @@ class FrankenTopic:
         self.emb_backend = emb_backend
         self.emb_model = emb_model
 
+        self.clusterer = None
         self.vectorizer: Optional[TfidfVectorizer] = None
         self.vocab: Optional[dict[int, str]] = None
         self.tf_idf_vecs: Optional[csr_matrix] = None
@@ -190,9 +191,9 @@ class FrankenTopic:
             self._run_kmeans(self.cluster_args)
         else:
             print('Clustering with HDBSCAN')
-            clusterer = hdbscan.HDBSCAN(**asdict(self.cluster_args))
-            clusterer.fit(self.layout)
-            self.labels = clusterer.labels_ + 1  # increment by one, so -1 (outlier) cluster becomes 0
+            self.clusterer = hdbscan.HDBSCAN(**asdict(self.cluster_args))
+            self.clusterer.fit(self.layout)
+            self.labels = self.clusterer.labels_ + 1  # increment by one, so -1 (outlier) cluster becomes 0
 
         print('Grouping tweets...')
         grouped_texts = [
@@ -219,7 +220,7 @@ class FrankenTopic:
         topics_mmr = []
         print('Improving topic keywords...')
         embedder = self.emb_backend(self.emb_model)
-        for topic in topics_tfidf:
+        for topic in tqdm(topics_tfidf):
             words = [w[0] for w in topic]
             word_embeddings = embedder.embed_words(words, verbose=False)
             topic_embedding = embedder.embed_documents([' '.join(words)], verbose=False).reshape(1, -1)

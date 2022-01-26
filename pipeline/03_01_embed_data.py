@@ -6,26 +6,29 @@ from utils.embedding import SentenceTransformerBackend
 from utils.io import exit_if_exists
 
 
+def clean_clean_text(txt):
+    return txt.replace('MENTION', '').replace('URL', '').replace('HASHTAG', '')
+
+
 def line2txt_hashtags(line):
     tweet = json.loads(line)
-    return tweet["clean_text"] + (" ".join(tweet["meta"]["hashtags"]))
+    return clean_clean_text(tweet["clean_text"]) + (" ".join(tweet["meta"]["hashtags"]))
 
 
 def line2txt_clean(line):
     tweet = json.loads(line)
-    return tweet["clean_text"]
+    return clean_clean_text(tweet["clean_text"])
 
 
 def embed_tweets(
-    dataset: str,
-    model: str,
-    limit: int,
-    include_hashtags: bool,
-    verbose: bool = True,
-    source_f: Optional[str] = None,
-    target_f: Optional[str] = None,
+        dataset: str,
+        model: str,
+        limit: int,
+        include_hashtags: bool,
+        verbose: bool = True,
+        source_f: Optional[str] = None,
+        target_f: Optional[str] = None,
 ):
-
     if source_f is None:
         source_f = f"data/{dataset}/tweets_filtered_{limit}.jsonl"
     if target_f is None:
@@ -52,10 +55,10 @@ def embed_tweets(
 
 
 if __name__ == "__main__":
-
     embed_tweets(
-        dataset="climate",  # 'geoengineering'
-        model="vinai/bertweet-large",  # 'paraphrase-multilingual-MiniLM-L12-v2'
-        limit=10000,
+        dataset="climate2",  # 'geoengineering'
+        model='paraphrase-multilingual-MiniLM-L12-v2',
+        # model='vinai/bertweet-large',
+        limit=100000,
         include_hashtags=True,
     )

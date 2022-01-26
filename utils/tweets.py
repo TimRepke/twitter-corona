@@ -14,6 +14,7 @@ PATTERN_URL = re.compile(r'(https?://[^\s]+)')
 PATTERN_HASHTAG = re.compile(r'#[a-zA-Z0-9_]+')
 PATTERN_MENTION = re.compile(r'@[a-zA-Z0-9_]+')
 PATTERN_NON_ALPH_NUM = re.compile(r'[^a-zA-Z0-9 ]')
+PATTERN_NON_ALPH = re.compile(r'[^a-zA-Z ]')
 PATTERN_MULTISPACE = re.compile(r'\s+')
 
 
@@ -35,19 +36,26 @@ def fetchall_dict(cur):
 
 
 def remove_url(s):
-    return PATTERN_URL.sub(' URL ', s)
+    # return PATTERN_URL.sub(' URL ', s)
+    return PATTERN_URL.sub(' ', s)
 
 
-def remove_nonal(s):
+def remove_nonalnum(s):
     return PATTERN_NON_ALPH_NUM.sub(' ', s)
 
 
+def remove_nonal(s):
+    return PATTERN_NON_ALPH.sub(' ', s)
+
+
 def remove_hashtag(s):
-    return PATTERN_HASHTAG.sub(' HASHTAG ', s)
+    # return PATTERN_HASHTAG.sub(' HASHTAG ', s)
+    return PATTERN_HASHTAG.sub(' ', s)
 
 
 def remove_mention(s):
-    return PATTERN_MENTION.sub(' MENTION ', s)
+    # return PATTERN_MENTION.sub(' MENTION ', s)
+    return PATTERN_MENTION.sub(' ', s)
 
 
 def get_hashtags(s):
@@ -62,7 +70,8 @@ def get_urls(s):
     return PATTERN_URL.findall(s)
 
 
-def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True):
+def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True,
+                remove_nonalnums=False):
     if s is None:
         return s
     if remove_urls:
@@ -71,9 +80,11 @@ def clean_tweet(s, remove_hashtags=True, remove_urls=True, remove_mentions=True,
         s = remove_hashtag(s)
     if remove_mentions:
         s = remove_mention(s)
+    if remove_nonalnums:
+        s = remove_nonalnum(s)
     if remove_nonals:
         s = remove_nonal(s)
-    return PATTERN_MULTISPACE.sub(' ', s)
+    return PATTERN_MULTISPACE.sub(' ', s).strip()
 
 
 def s2time(s):
