@@ -1,8 +1,6 @@
 import importlib
 import os
-from pathlib import Path
 
-from cluster_scripts.download.data import upload_to_owncloud
 from cluster_scripts.download.models import ModelCache
 
 pipe_embed = importlib.import_module("pipeline.03_01_embed_data")
@@ -47,12 +45,3 @@ if __name__ == "__main__":
         limit=int(os.environ["LIMIT_E"]),
         include_hashtags=bool(os.environ["INCLUDE_HASHTAGS"]),
     )
-
-    if bool(os.getenv("UPLOAD")):
-        upload_to_owncloud(
-            remote_path=str(paths["upload"] / paths["embeddings"].name),
-            local_path=str(paths["embeddings"]),
-            domain=os.getenv("OC_DOMAIN"),
-            user=os.getenv("OC_USER"),
-            password=os.getenv("OC_PW")
-        )
