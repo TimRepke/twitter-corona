@@ -10,7 +10,6 @@ import os
 
 from utils.tweets import clean_tweet
 from utils import load_embedded_data_jsonl
-from utils.embedding import SentenceTransformerBackend
 from utils.topics.frankentopic import FrankenTopic, UMAPArgs, VectorizerArgs, TSNEArgs, KMeansArgs, HDBSCANArgs
 from utils.topics.utils import FrankenTopicUtils, date2group
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS

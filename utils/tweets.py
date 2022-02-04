@@ -2,12 +2,8 @@ import re
 import json
 from datetime import datetime
 from dataclasses import dataclass
-import sqlite3
-from collections import defaultdict
-from typing import Optional, List, Tuple
-import numpy as np
-
-from .embedding import BaseEmbedder, SentenceTransformerBackend
+from typing import List
+import hashlib
 
 # PATTERN_URL = re.compile(r'(?i)\b((?:[a-z][\w-]+:(?:/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
 PATTERN_URL = re.compile(r'(https?://[^\s]+)')
@@ -119,42 +115,8 @@ def read_tweets(filename, limit):
         return tweets_d
 
 
-class Tweets:
-    def __init__(self, db_file=None, filename=None,
-                 remove_hashtags=True, remove_urls=True, remove_mentions=True, remove_nonals=True,
-                 limit: int = None):
-
-        assert db_file or filename
-
-        if db_file is not None:
-            raise NotImplementedError('This was removed!')
-        else:
-            tweets_d = read_tweets(filename, limit)
-
-        self.tweets = [process_tweet(tweet, remove_hashtags, remove_urls, remove_mentions, remove_nonals)
-                       for tweet in tweets_d]
-
-    def __len__(self):
-        return len(self.tweets)
-
-    def groupby_date(self, fmt) -> "dict[list]":
-        ret = defaultdict(list)
-        [ret[li.date.strftime(fmt)].append(li) for li in self.tweets]
-        return ret
-
-    def get_embeddings(self, model: Optional[BaseEmbedder] = None) -> np.ndarray:
-        if model is None:
-            model = SentenceTransformerBackend("paraphrase-multilingual-MiniLM-L12-v2")
-
-        return model.embed_documents([t.clean_text for t in self.tweets],
-                                     verbose=True)
-
-    def histogram(self, fmt) -> List[dict]:
-        self.cursor.execute(
-            f"""
-                SELECT strftime('{fmt}', created_at) grp, count(1) freq
-                FROM (SELECT * FROM pooled_sample_tweets {self.limit})
-                GROUP BY grp
-                ORDER BY grp;
-            """)
-        return fetchall_dict(self.cursor)
+def get_hash(tweet, include_author: bool = False):
+    s = tweet["clean_text"].lower()
+    if include_author:
+        s += f'|{tweet["author_id"]}'
+    return hashlib.md5(s.encode()).digest()

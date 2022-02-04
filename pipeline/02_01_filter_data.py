@@ -5,6 +5,7 @@ from typing import Optional
 
 from tqdm import tqdm
 from utils.io import count_tweets, exit_if_exists
+from utils.tweets import get_hash
 
 
 def is_relevant(tweet, only_en, min_tokens, max_hashtags):
@@ -15,11 +16,6 @@ def is_relevant(tweet, only_en, min_tokens, max_hashtags):
     if tweet['meta']['n_tokens_raw'] <= min_tokens and tweet['meta']['n_hashtags'] >= max_hashtags:
         return False
     return True
-
-
-def get_hash(tweet):
-    # return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
-    return hashlib.md5(f'{tweet["clean_text"].lower()}'.encode()).digest()
 
 
 def filter_dataset(dataset: str,
@@ -88,7 +84,7 @@ def filter_dataset(dataset: str,
 
                 # if is_relevant(tweet_o):
                 if accept_lang and has_text and has_min_tokens and has_max_hashtags and past_from_date and pre_to_date:
-                    h = get_hash(tweet_o)
+                    h = get_hash(tweet_o, include_author=False)
                     if h not in hashes:
                         # relevant and non-duplicate
                         f_rel_out.write(f'{line_i}\n')

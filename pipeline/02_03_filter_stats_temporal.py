@@ -12,6 +12,7 @@ from colorcet import glasbey
 import hashlib
 import os
 from collections import defaultdict
+from utils.tweets import get_hash
 
 # DATASET = 'geoengineering'
 DATASET = 'climate2'
@@ -26,12 +27,6 @@ DATE_FORMAT: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'monthly'
 
 FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
 FORMAT = FORMATS[DATE_FORMAT]
-
-
-def get_hash(tweet):
-    # return hashlib.md5(f'{tweet["author_id"]}|{tweet["clean_text"].lower()}'.encode()).digest()
-    return hashlib.md5(f'{tweet["clean_text"].lower()}'.encode()).digest()
-
 
 if __name__ == '__main__':
     groups = defaultdict(lambda: {
@@ -59,7 +54,7 @@ if __name__ == '__main__':
 
             groups[grp]['total'] += 1
             if is_en_or_null and has_min_tokens and has_max_hashtags:
-                h = get_hash(tweet_o)
+                h = get_hash(tweet_o, include_author=False)
                 if h not in hashes:
                     # relevant and non-duplicate
                     groups[grp]['relevant'] += 1
