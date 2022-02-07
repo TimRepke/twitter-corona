@@ -13,3 +13,4 @@ sklearn
 umap-learn
 plotly
 colorcet
+typed-argument-parser

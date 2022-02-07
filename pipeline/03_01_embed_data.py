@@ -1,28 +1,36 @@
 import json
 import os
-from typing import Optional, Union
-import argparse
+from typing import Optional, Union, Literal
 import numpy as np
 from utils.models import ModelCache, SentenceTransformerBackend, AutoModelBackend
 from utils.io import exit_if_exists
-from utils.cluster import ClusterJob, FileHandler, Config as SlurmConfig
+from tap import Tap
 
-parser = argparse.ArgumentParser(description='Tweet Embedder')
-parser.add_argument('--model', choices=['minilm', 'bertopic'], type=str, required=False, default='minilm',
-                    help='The embedding model to use.')
-parser.add_argument('--mode', choices=['local', 'cluster'], type=str, required=False, default='local',
-                    help='Whether to submit this as a cluster job or run locally.')
-parser.add_argument('--upload-data', action='store_true',
-                    help='Set this flag to force data upload to cluster')
-parser.add_argument('--upload-model', action='store_true',
-                    help='Set this flag to force model upload to cluster')
-parser.add_argument('--init-cluster', action='store_true',
-                    help='Set this flag to initialise the cluster environment')
-parser.add_argument('--cluster-mail', type=str, required=False)
-parser.add_argument('--cluster-user', type=str, required=False)
-parser.add_argument('--cluster-jobname', type=str, required=False, default='twitter-embed')
-parser.add_argument('--cluster-workdir', type=str, required=False, default='twitter')
-args = parser.parse_args()
+PathLike = Union[str, bytes, os.PathLike]
+
+
+class TweetEmbeddingArgs(Tap):
+    model: Literal['minilm', 'bertopic'] = 'minilm'  # The embedding model to use.
+    model_cache: str = 'data/models/'  # Location for cached models.
+    file_in: Optional[str] = None  # The file to read data from (relative to source root)
+    file_out: Optional[str] = None  # The file to write embeddings to (relative to source root)
+
+    limit: Optional[int] = 10000  # Size of the dataset
+    dataset: Optional[str] = 'climate2'  # Name of the dataset
+    excl_hashtags: bool = False  # Set this flag to exclude hashtags in the embedding
+
+    mode: Literal['local', 'cluster'] = 'local'  # Whether to submit this as a cluster job or run locally.
+
+    cluster_mail: Optional[str] = None  # email address for job notifications
+    cluster_user: Optional[str] = None  # PIK username
+    cluster_time: Optional[str] = '4:00:00'  # Time limit for the cluster job
+    cluster_ram: Optional[str] = '20G'  # Memory limit for the cluster job
+    cluster_jobname: str = 'twitter-embed'
+    cluster_workdir: str = 'twitter'
+
+    upload_data: bool = False  # Set this flag to force data upload to cluster
+    upload_model: bool = False  # Set this flag to force model upload to cluster
+    cluster_init: bool = False  # Set this flag to initialise the cluster environment
 
 
 def clean_clean_text(txt):
@@ -40,26 +48,19 @@ def line2txt_clean(line):
 
 
 def embed_tweets(
-        dataset: str,
-        model: Union[SentenceTransformerBackend, AutoModelBackend],
-        limit: int,
-        include_hashtags: bool,
-        verbose: bool = True,
-        source_f: Optional[str] = None,
-        target_f: Optional[str] = None):
-    if source_f is None:
-        source_f = f'data/{dataset}/tweets_filtered_{limit}.jsonl'
-    if target_f is None:
-        target_f = f'data/{dataset}/tweets_embeddings_{limit}_{include_hashtags}_{model.model_name}.npy'
-
+        source_f: PathLike,
+        target_f: PathLike,
+        model: Union[AutoModelBackend, SentenceTransformerBackend],
+        include_hashtags: bool = True,
+        verbose: bool = True):
     exit_if_exists(target_f)
 
     print('Loading texts...')
     with open(source_f) as f_in:
         if include_hashtags:
-            texts = [line2txt_hashtags(l) for l in f_in]
+            texts = [line2txt_hashtags(line) for line in f_in]
         else:
-            texts = [line2txt_clean(l) for l in f_in]
+            texts = [line2txt_clean(line) for line in f_in]
 
     print('Embedding texts...')
     embeddings = model.embed_documents(texts, verbose=verbose)
@@ -69,17 +70,32 @@ def embed_tweets(
 
 
 if __name__ == '__main__':
-    model_cache_location = 'data/models/'
+    args = TweetEmbeddingArgs(underscores_to_dashes=True).parse_args()
+
+    _include_hashtags = not args.excl_hashtags
+
+    if args.file_in is None:
+        file_in = f'data/{args.dataset}/tweets_filtered_{args.limit}.jsonl'
+    else:
+        file_in = args.file_in
+    if args.file_out is None:
+        file_out = f'data/{args.dataset}/tweets_embeddings_{args.limit}_{_include_hashtags}_{args.model}.npy'
+    else:
+        file_out = args.file_out
+
     if args.mode == 'cluster':
+        from utils.cluster import ClusterJob, FileHandler, Config as SlurmConfig
+
         assert args.cluster_user is not None or 'You need to set --cluster-user'
         assert args.cluster_mail is not None or 'You need to set --cluster-mail'
+
         s_config = SlurmConfig(username=args.cluster_user,
                                email_address=args.cluster_mail,
                                jobname=args.cluster_jobname,
                                workdir=args.cluster_workdir,
-                               memory='20G',
+                               memory=args.cluster_ram,
                                partition='gpu',
-                               time_limit='4:00:00',
+                               time_limit=args.cluster_time,
                                env_vars_run={
                                    'OPENBLAS_NUM_THREADS': 1,
                                    'TRANSFORMERS_OFFLINE': 1
@@ -88,25 +104,35 @@ if __name__ == '__main__':
                                    local_basepath=os.getcwd(),
                                    requirements_txt='requirements_cluster.txt',
                                    include_dirs=['pipeline', 'utils'],
-                                   model_cache=model_cache_location,
-                                   required_models=[args.model])
+                                   model_cache=args.model_cache,
+                                   required_models=[args.model],
+                                   data_files=[file_in])
         s_job = ClusterJob(config=s_config,
                            main_script='pipeline/03_01_embed_data.py',
                            script_params={
                                'mode': 'local',
-                               'model': args.model
+                               'model': args.model,
+                               'model-cache': s_config.modeldir_path,
+                               'file-in': os.path.join(s_config.datadir_path, file_in),
+                               'file-out': os.path.join(s_config.datadir_path, file_out)
                            })
-        if args.init_cluster:
+        if args.cluster_init:
             s_job.initialise(file_handler)
-        # else:
-        #     file_handler.sync_code()
+        else:
+            if args.upload_model:
+                file_handler.cache_upload_models()
+            if args.upload_data:
+                file_handler.upload_data()
+            file_handler.sync_code()
+
         s_job.submit_job()
     else:
-        model_cache = ModelCache(model_cache_location)
-        embedding_model = model_cache.get_embedder(args.model)
+        _model_cache = ModelCache(args.model_cache)
+        _model = _model_cache.get_embedder(args.model)
+
         embed_tweets(
-            dataset='climate2',
-            model=embedding_model,
-            limit=10000,
-            include_hashtags=True,
+            model=_model,
+            source_f=file_in,
+            target_f=file_out,
+            include_hashtags=_include_hashtags,
         )

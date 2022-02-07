@@ -188,10 +188,11 @@ class ModelCache:
             raise KeyError(f'Unknown model: {model_name}')
 
     def cache_embedding_model(self, model_name: str):
-        real_model_name = EMBEDDERS[model_name].hf_name
-        model_cache_path = str(self.get_model_path(model_name))
+        print(f'Checking for {model_name} in {self.cache_dir}')
         if not self.is_cached(model_name):
-            print(f'Downloading and caching {model_name}')
+            real_model_name = EMBEDDERS[model_name].hf_name
+            model_cache_path = str(self.get_model_path(model_name))
+            print(f'Downloading and caching {model_name} ({real_model_name} at {model_cache_path})')
             os.makedirs(model_cache_path, exist_ok=True)
             if EMBEDDERS[model_name].kind == 'transformer':
                 pretrained_model = SentenceTransformer(real_model_name)
@@ -204,10 +205,11 @@ class ModelCache:
             print(f'Already cached {model_name}')
 
     def cache_classifier(self, model_name: str):
+        print(f'Checking for {model_name} in {self.cache_dir}')
         if not self.is_cached(model_name):
-            print(f'Downloading and caching {model_name}')
             real_model_name = CLASSIFIERS[model_name].hf_name
             model_cache_path = str(self.get_model_path(model_name))
+            print(f'Downloading and caching {model_name} ({real_model_name} at {model_cache_path})')
             os.makedirs(model_cache_path, exist_ok=True)
             pretrained_model = (
                 AutoModelForSequenceClassification.from_pretrained(real_model_name)
