@@ -2,11 +2,9 @@ import os.path
 
 import numpy as np
 from scipy.sparse.csr import csr_matrix
-from typing import Type, Optional, Union, Literal
+from typing import Type, Optional, Union, Literal, List, Tuple
 from dataclasses import dataclass, asdict
 from tqdm import tqdm
-# from sklearn.cluster import SpectralClustering # don't use this, memory explodes
-# from spectralcluster import SpectralClusterer # don't use this, memory explodes
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -14,8 +12,9 @@ from umap import UMAP
 import openTSNE
 import hdbscan
 
-from utils.tweets import Tweets
-from utils.embedding import SentenceTransformerBackend, BaseEmbedder
+from utils.models import ModelCache
+
+TopicListing = List[List[Tuple[str, float]]]
 
 
 @dataclass
@@ -108,14 +107,42 @@ def mmr(doc_embedding: np.ndarray,
     return [words[idx] for idx in keywords_idx]
 
 
+def get_top_mmr(topics_tfidf: TopicListing, n_tokens: int, model_cache_location: str, model: str, mmr_diversity: float):
+    topics_mmr = []
+    print('Improving topic keywords...')
+    model_cache = ModelCache(cache_dir=model_cache_location)
+    embedder = model_cache.get_embedder(model)
+
+    for topic in tqdm(topics_tfidf):
+        words = [w[0] for w in topic]
+        word_embeddings = embedder.embed_words(words, verbose=False)
+        topic_embedding = embedder.embed_documents([' '.join(words)], verbose=False).reshape(1, -1)
+        topic_words = mmr(topic_embedding, word_embeddings, words,
+                          top_n=n_tokens, diversity=mmr_diversity)
+        topics_mmr.append([
+            (word, value) for word, value in topic if word in topic_words
+        ])
+    return topics_mmr
+
+
+def get_top_tfidf(vectors, token_lookup, n_tokens: int = 20) -> TopicListing:
+    print('Computing top tf-idf words per topic...')
+    rank = np.argsort(vectors.todense())
+    return [
+        [(token_lookup[rank[i, -(j + 1)]], vectors[i, rank[i, -(j + 1)]])
+         for j in range(n_tokens)]
+        for i in range(len(rank))
+    ]
+
+
 class FrankenTopic:
     def __init__(self,
                  cluster_args: Union[HDBSCANArgs, KMeansArgs] = None,
                  n_words_per_topic: int = 20,
                  n_candidates: int = 40,
                  mmr_diversity: float = 0.8,
-                 emb_backend: Type[BaseEmbedder] = SentenceTransformerBackend,
-                 emb_model: str = 'paraphrase-multilingual-MiniLM-L12-v2',
+                 emb_model: str = 'minilm',
+                 model_cache_location: str = 'data/models/',
                  dr_args: Union[UMAPArgs, TSNEArgs] = None,
                  cache_layout: str = None,
                  vectorizer_args: VectorizerArgs = None):
@@ -134,8 +161,8 @@ class FrankenTopic:
         self.mmr_diversity = mmr_diversity
         self.layout_cache_file = cache_layout
 
-        self.emb_backend = emb_backend
         self.emb_model = emb_model
+        self.model_cache_location = model_cache_location
 
         self.clusterer = None
         self.vectorizer: Optional[TfidfVectorizer] = None
@@ -212,31 +239,13 @@ class FrankenTopic:
 
     def get_top_n_mmr(self, n_tokens: int = None) -> list[list[tuple[str, float]]]:
         assert self._is_fit
-
-        if n_tokens is None:
-            n_tokens = self.n_words_per_topic
-
-        topics_tfidf = self.get_top_n_tfidf(self.n_candidates)
-        topics_mmr = []
-        print('Improving topic keywords...')
-        embedder = self.emb_backend(self.emb_model)
-        for topic in tqdm(topics_tfidf):
-            words = [w[0] for w in topic]
-            word_embeddings = embedder.embed_words(words, verbose=False)
-            topic_embedding = embedder.embed_documents([' '.join(words)], verbose=False).reshape(1, -1)
-            topic_words = mmr(topic_embedding, word_embeddings, words,
-                              top_n=n_tokens, diversity=self.mmr_diversity)
-            topics_mmr.append([
-                (word, value) for word, value in topic if word in topic_words
-            ])
-        return topics_mmr
+        tfidf_candidates = self.get_top_n_tfidf(self.n_candidates)
+        return get_top_mmr(topics_tfidf=tfidf_candidates,
+                           n_tokens=n_tokens or self.n_words_per_topic,
+                           model_cache_location=self.model_cache_location,
+                           model=self.emb_model,
+                           mmr_diversity=self.mmr_diversity)
 
     def get_top_n_tfidf(self, n_tokens: int = 20) -> list[list[tuple[str, float]]]:
         assert self._is_fit
-        print('Computing top tf-idf words per topic...')
-        rank = np.argsort(self.tf_idf_vecs.todense())
-        return [
-            [(self.vocab[rank[i, -(j + 1)]], self.tf_idf_vecs[i, rank[i, -(j + 1)]])
-             for j in range(n_tokens)]
-            for i in range(len(rank))
-        ]
+        return get_top_tfidf(self.tf_idf_vecs, token_lookup=self.vocab, n_tokens=n_tokens)

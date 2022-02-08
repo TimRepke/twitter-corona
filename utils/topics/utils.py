@@ -1,11 +1,11 @@
 import numpy as np
-from .frankentopic import FrankenTopic
+from .frankentopic import FrankenTopic, TopicListing
 from collections import Counter
 import plotly.express as px
 import plotly.graph_objects as go
 from colorcet import glasbey
 from datetime import datetime
-from typing import Literal
+from typing import Literal, List
 
 FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
 
@@ -13,6 +13,86 @@ FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%
 def date2group(dt, fmt):
     timestamp = datetime.strptime(dt[:19], '%Y-%m-%dT%H:%M:%S')
     return timestamp.strftime(FORMATS[fmt])
+
+
+def get_tokens(listing: TopicListing, topic: int, n_tokens: int):
+    return [w[0] for w in listing[topic]][:n_tokens]
+
+
+def simple_topic_listing(topics_tfidf: TopicListing, topics_mmr: TopicListing, n_tokens: int, labels: np.ndarray):
+    topic_ids, topic_sizes = np.unique(labels, return_counts=True)
+    for i, (c_i, c_cnt) in enumerate(zip(topic_ids, topic_sizes)):
+        print(f'>> Topic {c_i} with {c_cnt} Tweets:')
+        print(f' - tfidf: {",".join(get_tokens(topics_tfidf, i, n_tokens))}')
+        print(f' - mmr:   {",".join(get_tokens(topics_mmr, i, n_tokens))}')
+        print('---')
+
+
+def get_temporal_distribution(tweets: List[dict], labels: np.ndarray,
+                              date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
+                              boost: list[Literal['retweets', 'likes', 'replies']] = None,
+                              skip_topic_zero=False):
+    topic_ids = np.unique(labels, return_counts=False)
+    groups = {}
+    for tw, to in zip(tweets, labels):
+        if (not skip_topic_zero) or (skip_topic_zero and to != 0):
+            group = date2group(tw['created_at'], date_format)
+
+            if group not in groups:
+                groups[group] = np.zeros_like(topic_ids)
+
+            groups[group][to] += 1
+            if boost is not None:
+                boost_map = {
+                    'retweets': 'retweets_count',
+                    'likes': 'favorites_count',
+                    'replies': 'replies_count'
+                }
+                for b in boost:
+                    groups[group][to] += tw.get(boost_map[b], 0)
+
+    return groups
+
+
+def write_normed_topic_distribution(temporal_topics,
+                                    target_html_hist: str,
+                                    target_html_heat: str,
+                                    target_json: str,
+                                    n_tokens: int,
+                                    topic_listing: TopicListing):
+    time_groups = sorted(temporal_topics.keys())
+
+    topic_dist = np.array([temporal_topics[tg].tolist() for tg in time_groups])
+
+    fig = go.Figure([go.Bar(x=[f'd:{d}' for d in time_groups],
+                            y=topic_dist.sum(axis=0))])
+    fig.write_html(f'{TARGET_DIR}/histogram_{LIMIT}_{DATE_FORMAT}_{"_".join(boost)}.html')
+
+    if norm == 'row':
+        topic_dist = topic_dist / (topic_dist.sum(axis=0) + 0.0000001)
+    elif norm == 'col':
+        topic_dist = (topic_dist.T / (topic_dist.sum(axis=1) + 0.0000001)).T
+    # elif norm == 'abs':
+    #     pass
+
+    fig = go.Figure(data=go.Heatmap(
+        z=topic_dist.T,
+        x=[f'd:{d}' for d in time_groups],
+        y=[', '.join(topic_model_utils.get_keywords(t, keyword_source='mmr', n_keywords=4))
+           for t in topic_model_utils.topic_ids[1:]],
+        hoverongaps=False))
+    fig.write_html(f'{TARGET_DIR}/temporal_{LIMIT}_{DATE_FORMAT}_{norm}_{"_".join(boost)}.html')
+
+    with open(f'{TARGET_DIR}/temporal/tt_{LIMIT}_{DATE_FORMAT}_{norm}_{"_".join(boost)}.json', 'w') as f:
+        f.write(json.dumps({
+            'z': topic_dist.T.tolist(),
+            'x': time_groups,
+            'y': [', '.join(topic_model_utils.get_keywords(t, keyword_source='mmr', n_keywords=4))
+                  for t in topic_model_utils.topic_ids[1:]],
+        }))
+
+    for ti, vals in enumerate(topic_dist.T):
+        output['topics'][ti][f'{norm}_{"_".join(boost or ["raw"])}'] = vals.tolist()
 
 
 class FrankenTopicUtils:
@@ -64,8 +144,8 @@ class FrankenTopicUtils:
                      n_keywords: int,
                      keyword_source: Literal['mmr', 'tfidf'] = 'mmr'):
         if keyword_source == 'mmr':
-            return [w[0] for w in self.mmr_topics[topic]][:n_keywords]
-        return [w[0] for w in self.tfidf_topics[topic]][:n_keywords]
+            return get_tokens(self.mmr_topics, topic, n_keywords)
+        return get_tokens(self.tfidf_topics, topic, n_keywords)
 
     def landscape(self,
                   emotions_model: str = None,
@@ -133,26 +213,9 @@ class FrankenTopicUtils:
                                   date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
                                   boost: list[Literal['retweets', 'likes', 'replies']] = None,
                                   skip_topic_zero=False):
-        groups = {}
-        for tw, to in zip(self.tweets, self.topic_model.labels):
-            if (not skip_topic_zero) or (skip_topic_zero and to != 0):
-                group = date2group(tw['created_at'], date_format)
 
-                if group not in groups:
-                    groups[group] = np.zeros_like(self.topic_ids)
-
-                groups[group][to] += 1
-                if boost is not None:
-                    # "favorites_count": 0, "retweets_count": 0, "replies_count": 0
-                    boost_map = {
-                        'retweets': 'retweets_count',
-                        'likes': 'favorites_count',
-                        'replies': 'replies_count'
-                    }
-                    for b in boost:
-                        groups[group][to] += tw.get(boost_map[b], 0)
-
-        return groups
+        return get_temporal_distribution(tweets=self.tweets, labels=self.topic_model.labels, date_format=date_format,
+                                         boost=boost, skip_topic_zero=skip_topic_zero)
 
     def temporal_stacked_fig(self,
                              date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],

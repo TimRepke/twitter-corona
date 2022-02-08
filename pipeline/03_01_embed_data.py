@@ -3,13 +3,14 @@ import os
 from typing import Optional, Union, Literal
 import numpy as np
 from utils.models import ModelCache, SentenceTransformerBackend, AutoModelBackend
+from utils.cluster import ClusterJobBaseArguments
 from utils.io import exit_if_exists
-from tap import Tap
+from copy import deepcopy
 
 PathLike = Union[str, bytes, os.PathLike]
 
 
-class TweetEmbeddingArgs(Tap):
+class TweetEmbeddingArgs(ClusterJobBaseArguments):
     model: Literal['minilm', 'bertopic'] = 'minilm'  # The embedding model to use.
     model_cache: str = 'data/models/'  # Location for cached models.
     file_in: Optional[str] = None  # The file to read data from (relative to source root)
@@ -19,18 +20,8 @@ class TweetEmbeddingArgs(Tap):
     dataset: Optional[str] = 'climate2'  # Name of the dataset
     excl_hashtags: bool = False  # Set this flag to exclude hashtags in the embedding
 
-    mode: Literal['local', 'cluster'] = 'local'  # Whether to submit this as a cluster job or run locally.
-
-    cluster_mail: Optional[str] = None  # email address for job notifications
-    cluster_user: Optional[str] = None  # PIK username
-    cluster_time: Optional[str] = '4:00:00'  # Time limit for the cluster job
-    cluster_ram: Optional[str] = '20G'  # Memory limit for the cluster job
     cluster_jobname: str = 'twitter-embed'
     cluster_workdir: str = 'twitter'
-
-    upload_data: bool = False  # Set this flag to force data upload to cluster
-    upload_model: bool = False  # Set this flag to force model upload to cluster
-    cluster_init: bool = False  # Set this flag to initialise the cluster environment
 
 
 def clean_clean_text(txt):
@@ -84,22 +75,16 @@ if __name__ == '__main__':
         file_out = args.file_out
 
     if args.mode == 'cluster':
-        from utils.cluster import ClusterJob, FileHandler, Config as SlurmConfig
+        from utils.cluster import Config as SlurmConfig
+        from utils.cluster.job import ClusterJob
+        from utils.cluster.files import FileHandler
 
-        assert args.cluster_user is not None or 'You need to set --cluster-user'
-        assert args.cluster_mail is not None or 'You need to set --cluster-mail'
-
-        s_config = SlurmConfig(username=args.cluster_user,
-                               email_address=args.cluster_mail,
-                               jobname=args.cluster_jobname,
-                               workdir=args.cluster_workdir,
-                               memory=args.cluster_ram,
-                               partition='gpu',
-                               time_limit=args.cluster_time,
-                               env_vars_run={
-                                   'OPENBLAS_NUM_THREADS': 1,
-                                   'TRANSFORMERS_OFFLINE': 1
-                               })
+        s_config = SlurmConfig.from_args(args,
+                                         partition='gpu',
+                                         env_vars_run={
+                                             'OPENBLAS_NUM_THREADS': 1,
+                                             'TRANSFORMERS_OFFLINE': 1
+                                         })
         file_handler = FileHandler(config=s_config,
                                    local_basepath=os.getcwd(),
                                    requirements_txt='requirements_cluster.txt',
@@ -107,25 +92,12 @@ if __name__ == '__main__':
                                    model_cache=args.model_cache,
                                    required_models=[args.model],
                                    data_files=[file_in])
-        s_job = ClusterJob(config=s_config,
-                           main_script='pipeline/03_01_embed_data.py',
-                           script_params={
-                               'mode': 'local',
-                               'model': args.model,
-                               'model-cache': s_config.modeldir_path,
-                               'file-in': os.path.join(s_config.datadir_path, file_in),
-                               'file-out': os.path.join(s_config.datadir_path, file_out)
-                           })
-        if args.cluster_init:
-            s_job.initialise(file_handler)
-        else:
-            if args.upload_model:
-                file_handler.cache_upload_models()
-            if args.upload_data:
-                file_handler.upload_data()
-            file_handler.sync_code()
-
-        s_job.submit_job()
+        s_job = ClusterJob(config=s_config, file_handler=file_handler)
+        cluster_args = deepcopy(args)
+        cluster_args.file_in = os.path.join(s_config.datadir_path, file_in)
+        cluster_args.file_out = os.path.join(s_config.datadir_path, file_out)
+        cluster_args.model_cache = s_config.modeldir_path
+        s_job.submit_job(main_script='pipeline/03_01_embed_data.py', params=cluster_args)
     else:
         _model_cache = ModelCache(args.model_cache)
         _model = _model_cache.get_embedder(args.model)

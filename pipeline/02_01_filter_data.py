@@ -134,7 +134,7 @@ def filter_dataset(dataset: str,
 if __name__ == '__main__':
     filter_dataset(
         dataset='climate2',  # 'geoengineering'
-        limit=1000000,
+        limit=7000000,
         only_en=True,
         from_date='2018-01',
         to_date='2022-01',
