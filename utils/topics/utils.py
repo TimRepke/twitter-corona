@@ -28,7 +28,8 @@ def simple_topic_listing(topics_tfidf: TopicListing, topics_mmr: TopicListing, n
         print('---')
 
 
-def get_temporal_distribution(tweets: List[dict], labels: np.ndarray,
+def get_temporal_distribution(tweets: List[dict],
+                              labels: np.ndarray,
                               date_format: Literal['monthly', 'yearly', 'weekly', 'daily'],
                               boost: list[Literal['retweets', 'likes', 'replies']] = None,
                               skip_topic_zero=False):

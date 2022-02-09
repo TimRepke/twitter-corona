@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import shlex
 import tempfile
+import time
 import os
 
 from . import Config, ClusterJobBaseArguments
@@ -93,7 +94,11 @@ class ClusterJob:
 
             self.file_handler.sync_code()
 
+        print('Preparing and uploading slurm shell script...')
         self._create_upload_slurm_script(main_script=main_script, params=params)
+        time.sleep(1)
+
+        print('Triggering the job run...')
         out = self.ssh_client.run_command(f'sbatch {os.path.join(self.config.workdir_path, self.config.jobscript)}')
         job_id = list(out.stdout)
         if len(job_id) > 0:
@@ -107,6 +112,7 @@ class ClusterJob:
             print(f' $ squeue -u {self.config.username}')
         else:
             print("Something went wrong (Couldn't read job id)...")
+            print('\n'.join(job_id))
 
     def initialise(self):
         print('# Initialising cluster job (1/5) - Uploading requirements.txt...')

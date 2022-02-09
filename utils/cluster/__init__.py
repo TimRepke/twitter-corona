@@ -12,6 +12,8 @@ class ClusterJobBaseArguments(Tap):
     cluster_user: Optional[str] = None  # PIK username
     cluster_time: Optional[str] = '4:00:00'  # Time limit for the cluster job
     cluster_ram: Optional[str] = '20G'  # Memory limit for the cluster job
+    cluster_gpu: bool = False  # Set this flag if the job needs GPU support
+    cluster_n_cpus: int = 1  # The number of cores to be used
     cluster_jobname: str
     cluster_workdir: str
 
@@ -63,6 +65,7 @@ class Config:
     partition: Literal['standard', 'gpu', 'largemem', 'io'] = 'standard'
     gpu_type: Optional[Literal['v100', 'k40m']] = 'v100'  # NVidia Tesla K40m or Tesla V100
     n_gpus: Optional[Literal[1, 2]] = 1
+    n_cpus: Optional[int] = 1
 
     # https://gitlab.pik-potsdam.de/hpc-documentation/cluster-documentation/-/blob/master/Cluster%20User%20Guide.md#qos
     # short: max 24h; medium: max 7d; long: max 30d
@@ -88,14 +91,18 @@ class Config:
 
     @classmethod
     def from_args(cls, args: ClusterJobBaseArguments, **kwargs):
-        return cls(username=args.cluster_user,
-                   email_address=args.cluster_mail,
-                   jobname=args.cluster_jobname,
-                   workdir=args.cluster_workdir,
-                   memory=args.cluster_ram,
-                   time_limit=args.cluster_time,
-                   python_unbuffered=args.python_unbuffered,
-                   **kwargs)
+        config = cls(username=args.cluster_user,
+                     email_address=args.cluster_mail,
+                     jobname=args.cluster_jobname,
+                     workdir=args.cluster_workdir,
+                     memory=args.cluster_ram,
+                     time_limit=args.cluster_time,
+                     python_unbuffered=args.python_unbuffered,
+                     n_cpus=args.cluster_n_cpus,
+                     **kwargs)
+        if args.cluster_gpu:
+            config.partition = 'gpu'
+        return config
 
     @property
     def std_out(self) -> str:
@@ -167,6 +174,8 @@ class Config:
         ret += f'#SBATCH --partition={self.partition}\n'
         if self.partition == 'gpu':
             ret += f'#SBATCH --gres=gpu:{self.gpu_type}:{self.n_gpus}\n'
+        ret += f'#SBATCH --nodes=1\n'
+        ret += f'#SBATCH --cpus-per-task={self.n_cpus}'
         ret += f'#SBATCH --mem={self.memory}\n'
         ret += f'#SBATCH --output={self.std_out}\n'
         ret += f'#SBATCH --error={self.std_err}\n'
