@@ -5,17 +5,7 @@ from typing import Optional
 
 from tqdm import tqdm
 from utils.io import count_tweets, exit_if_exists
-from utils.tweets import get_hash
-
-
-def is_relevant(tweet, only_en, min_tokens, max_hashtags):
-    if only_en and tweet['lang'] != 'en':
-        return False
-    if tweet['text'] is None:
-        return False
-    if tweet['meta']['n_tokens_raw'] <= min_tokens and tweet['meta']['n_hashtags'] >= max_hashtags:
-        return False
-    return True
+from utils.tweets import TweetFilter, FilterResult
 
 
 def filter_dataset(dataset: str,
@@ -47,60 +37,37 @@ def filter_dataset(dataset: str,
         num_lines = 0
         n_duplicates = 0
         n_irrelevant = 0
+
+        tweet_filter = TweetFilter(only_en=only_en, allow_lang_null=allow_lang_null, min_tokens=min_tokens,
+                                   allow_duplicates=False, max_hashtags=max_hashtags, from_date=from_date,
+                                   to_date=to_date, duplicate_include_author=False)
+
         with open(source_f, 'r') as f_in, \
                 open(relevance_f, 'w') as f_rel_out, \
                 open(irrelevance_f, 'w') as f_irrel_out:
-            hashes = set()
-            total_lines = count_tweets(source_f)
-            for line_i, line in tqdm(enumerate(f_in), total=total_lines, desc="Filtering / removing duplicates"):
+
+            for line_i, line in tqdm(enumerate(f_in)):
                 tweet_o = json.loads(line)
-                # print(num_lines, tweet_o)
                 num_lines += 1
 
-                lang = tweet_o.get('lang', None)
-                if only_en and allow_lang_null:
-                    accept_lang = lang == 'en' or lang is None
-                elif only_en and not allow_lang_null:
-                    accept_lang = lang == 'en'
-                elif not only_en and allow_lang_null:
-                    accept_lang = True
-                else:  # not only_en and not allow_lang_null
-                    accept_lang = lang is not None
-
-                if from_date is not None:
-                    past_from_date = tweet_o['created_at'][:len(from_date)] >= from_date
+                relevance = tweet_filter.is_relevant(tweet_o)
+                if relevance.accept:
+                    f_rel_out.write(f'{line_i}\n')
                 else:
-                    past_from_date = True
-
-                if to_date is not None:
-                    pre_to_date = tweet_o['created_at'][:len(to_date)] <= to_date
-                else:
-                    pre_to_date = True
-
-                has_text = tweet_o['text'] is not None
-                if has_text:
-                    has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= min_tokens
-                    has_max_hashtags = tweet_o['meta']['n_hashtags'] <= max_hashtags
-
-                # if is_relevant(tweet_o):
-                if accept_lang and has_text and has_min_tokens and has_max_hashtags and past_from_date and pre_to_date:
-                    h = get_hash(tweet_o, include_author=False)
-                    if h not in hashes:
-                        # relevant and non-duplicate
-                        f_rel_out.write(f'{line_i}\n')
-                        hashes.add(h)
-                    else:
-                        f_irrel_out.write(f'{line_i}|1|0|0|0|0|0|0\n')
+                    f_irrel_out.write(f'{line_i}|{relevance.duplicate:d}|{relevance.accept_lang:d}|'
+                                      f'{relevance.has_text:d}|{relevance.has_min_tokens:d}|'
+                                      f'{relevance.has_max_hashtags:d}|{relevance.past_from_date:d}|'
+                                      f'{relevance.pre_to_date:d}\n')
+                    if relevance.duplicate:
                         n_duplicates += 1
-                else:
-                    f_irrel_out.write(f'{line_i}|0|{accept_lang:d}|{has_text:d}|{has_min_tokens:d}|'
-                                      f'{has_max_hashtags:d}|{past_from_date:d}|{pre_to_date:d}\n')
-                    n_irrelevant += 1
+                    else:
+                        n_irrelevant += 1
+
             print(f'Read {num_lines:,} lines, found {n_duplicates:,} '
                   f'duplicates and {n_irrelevant:,} irrelevant tweets.')
 
-            # clear up memory
-            del hashes
+        # clear up memory
+        del tweet_filter
 
         N_LINES = num_lines - n_duplicates - n_irrelevant
     else:
