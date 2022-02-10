@@ -11,6 +11,8 @@ class TopicModelArgs(ClusterJobBaseArguments):
     file_tweets: Optional[str] = None  # The file containing tweets (relative to source root)
     file_layout: Optional[str] = None  # The file containing layout (relative to source root)
     output_directory: Optional[str] = None  # The directory to write outputs to
+    file_labels: Optional[str] = None  # The npy file containing existing topic labels
+    ignore_file_labels: bool = False  # Set this flag to override (possibly) existing topic labels
 
     limit: Optional[int] = 10000  # Size of the dataset
     dataset: Optional[str] = 'climate2'  # Name of the dataset
@@ -35,7 +37,7 @@ class TopicModelArgs(ClusterJobBaseArguments):
     cluster_workdir: str = 'twitter'
 
 
-def get_cluster_labels(layout, min_samples, min_cluster_size,
+def get_cluster_labels(layout_, min_samples, min_cluster_size,
                        cluster_selection_epsilon, alpha, cluster_selection_method):
     import hdbscan
     clusterer = hdbscan.HDBSCAN(min_samples=min_samples,
@@ -43,9 +45,9 @@ def get_cluster_labels(layout, min_samples, min_cluster_size,
                                 cluster_selection_epsilon=cluster_selection_epsilon,
                                 alpha=alpha,
                                 cluster_selection_method=cluster_selection_method)
-    clusterer.fit(layout)
-    labels = clusterer.labels_ + 1  # increment by one, so -1 (outlier) cluster becomes 0
-    return labels
+    clusterer.fit(layout_)
+    labels_ = clusterer.labels_ + 1  # increment by one, so -1 (outlier) cluster becomes 0
+    return labels_
 
 
 def write_distributions(boosts: List[List[Literal['retweets', 'likes', 'replies']]],
@@ -84,8 +86,8 @@ def write_distributions(boosts: List[List[Literal['retweets', 'likes', 'replies'
                 hoverongaps=False))
             fig.write_html(f'{args.output_directory}/temporal_{filename_part}_{norm}.html')
 
-            with open(f'{args.output_directory}/temporal_{filename_part}_{norm}.json', 'w') as f:
-                f.write(json.dumps({
+            with open(f'{args.output_directory}/temporal_{filename_part}_{norm}.json', 'w') as f_dist:
+                f_dist.write(json.dumps({
                     'z': topic_dist_.T.tolist(),
                     'x': time_groups,
                     'y': y,
@@ -138,13 +140,9 @@ if __name__ == '__main__':
     file_layout = args.file_layout or f'data/{args.dataset}/topics/layout_{args.limit}_{args.projection}.npy'
     file_tweets = args.file_tweets or f'data/{args.dataset}/tweets_filtered_{args.limit}.jsonl'
     target_dir = args.output_directory or f'data/{args.dataset}/topics/'
+    file_labels = args.file_labels or os.path.join(target_dir, f'labels_{args.limit}_{args.projection}.npy')
 
     if args.mode == 'cluster':
-        args = TopicModelArgs(underscores_to_dashes=True).parse_args()
-        if args.args_file is not None:
-            print(f'Dropping keyword arguments and loading from file: {args.args_file}')
-            args = TopicModelArgs().load(args.args_file)
-
         from utils.cluster import Config as SlurmConfig
         from utils.cluster.job import ClusterJob
         from utils.cluster.files import FileHandler
@@ -162,7 +160,9 @@ if __name__ == '__main__':
         cluster_args.mode = 'local'
         cluster_args.file_layout = os.path.join(s_config.datadir_path, file_layout)
         cluster_args.file_tweets = os.path.join(s_config.datadir_path, file_tweets)
+        cluster_args.model_cache = s_config.modeldir_path
         cluster_args.output_directory = os.path.join(s_config.datadir_path, target_dir)
+        cluster_args.file_labels = os.path.join(s_config.datadir_path, file_labels)
         s_job.submit_job(main_script='pipeline/04_03_topicmodel.py', params=cluster_args)
 
     else:
@@ -178,10 +178,16 @@ if __name__ == '__main__':
         print('Loading layout...')
         layout = np.load(file_layout)
 
-        print('Clustering with HDBSCAN...')
-        labels = get_cluster_labels(layout, min_samples=args.min_samples, min_cluster_size=args.min_cluster_size,
-                                    cluster_selection_epsilon=args.cluster_selection_epsilon, alpha=args.alpha,
-                                    cluster_selection_method=args.cluster_selection_method)
+        if os.path.exists(file_labels) and not args.ignore_file_labels:
+            print(f'Loading existing cluster labels from file {file_labels}')
+            labels = np.load(file_labels)
+        else:
+            print('Clustering with HDBSCAN...')
+            labels = get_cluster_labels(layout, min_samples=args.min_samples, min_cluster_size=args.min_cluster_size,
+                                        cluster_selection_epsilon=args.cluster_selection_epsilon, alpha=args.alpha,
+                                        cluster_selection_method=args.cluster_selection_method)
+            np.save(file_labels, labels)
+
         topic_ids = np.unique(labels)
 
         print('Loading tweets...')

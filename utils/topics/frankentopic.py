@@ -127,12 +127,15 @@ def get_top_mmr(topics_tfidf: TopicListing, n_tokens: int, model_cache_location:
 
 def get_top_tfidf(vectors, token_lookup, n_tokens: int = 20) -> TopicListing:
     print('Computing top tf-idf words per topic...')
-    rank = np.argsort(vectors.todense())
-    return [
-        [(token_lookup[rank[i, -(j + 1)]], vectors[i, rank[i, -(j + 1)]])
-         for j in range(n_tokens)]
-        for i in range(len(rank))
-    ]
+
+    result = []
+    for topic_i in range(vectors.shape[0]):
+        rank = np.argsort(vectors[topic_i].todense())
+        result.append([
+            (token_lookup[rank[0, -(token_i + 1)]], vectors[topic_i, rank[0, -(token_i + 1)]])
+            for token_i in range(n_tokens)
+        ])
+    return result
 
 
 class FrankenTopic:
