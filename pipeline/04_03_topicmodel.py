@@ -18,10 +18,10 @@ class TopicModelArgs(ClusterJobBaseArguments):
     projection: Literal['umap', 'tsne'] = 'tsne'  # The dimensionality reduction method to use
 
     # hdbscan args
-    min_samples: int = 10,
-    min_cluster_size: int = 30,
-    cluster_selection_epsilon: float = 0.5,
-    alpha: float = 1.,
+    min_samples: int = 10
+    min_cluster_size: int = 30
+    cluster_selection_epsilon: float = 0.5
+    alpha: float = 1.
     cluster_selection_method: Literal['eom', 'leaf'] = 'eom'
 
     n_tokens_listing: int = 20  # number of tokens per topic to show in listing and store in dump
