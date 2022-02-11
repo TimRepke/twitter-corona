@@ -1,6 +1,6 @@
 import numpy as np
 
-labels = np.load('data/climate2/topics_big/labels_7000000_tsne.npy')
+labels = np.load('data/climate2/topics_big2/labels_7000000_tsne.npy')
 topic_ids, topic_sizes = np.unique(labels, return_counts=True)
 print(f'Num topics: {len(topic_ids)}, mean size: {topic_sizes[1:].mean():.1f}, '
       f'median size: {np.median(topic_sizes[1:]):.1f}, num outliers: {topic_sizes[0]:,},'
