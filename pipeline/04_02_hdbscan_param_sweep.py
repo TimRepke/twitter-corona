@@ -74,7 +74,7 @@ if __name__ == '__main__':
         tree = clusterer.single_linkage_tree_
 
         print('Running parameter sweep (keeping only those with > 100 topics)...')
-        for cutoff in [0, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.5]:
+        for cutoff in [0, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.5]:
             # , 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 9, 10]:
             for min_cluster_size in [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 50, 100, 150, 200, 500, 1000]:
                 cnts = np.unique(tree.get_clusters(cut_distance=cutoff,

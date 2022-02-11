@@ -55,7 +55,7 @@ def write_distributions(boosts: List[List[Literal['retweets', 'likes', 'replies'
     ret = {}
     for boost in boosts:
         print(f'Computing temporal distribution for boost: "{"_".join(boost or ["raw"])}"')
-        filename_part = f'_{args.limit}_{args.temporal_grouping}_{"_".join(boost or ["raw"])}'
+        filename_part = f'{args.limit}_{args.temporal_grouping}_{"_".join(boost or ["raw"])}'
 
         temporal_topics = get_temporal_distribution(labels=labels, tweets=tweets,
                                                     date_format=args.temporal_grouping,
@@ -66,7 +66,7 @@ def write_distributions(boosts: List[List[Literal['retweets', 'likes', 'replies'
 
         fig = go.Figure([go.Bar(x=[f'd:{d}' for d in time_groups],
                                 y=topic_dist.sum(axis=0))])
-        fig.write_html(f'{args.output_directory}/histogram_{filename_part}.html')
+        fig.write_html(f'{target_dir}/histogram_{filename_part}.html')
 
         for norm in norms:
             print(f'Computing temporal distribution for boost: "{"_".join(boost)}" and normalisation: "{norm}"')
@@ -84,9 +84,9 @@ def write_distributions(boosts: List[List[Literal['retweets', 'likes', 'replies'
                 x=[f'd:{d}' for d in time_groups],
                 y=y,
                 hoverongaps=False))
-            fig.write_html(f'{args.output_directory}/temporal_{filename_part}_{norm}.html')
+            fig.write_html(f'{target_dir}/temporal_{filename_part}_{norm}.html')
 
-            with open(f'{args.output_directory}/temporal_{filename_part}_{norm}.json', 'w') as f_dist:
+            with open(f'{target_dir}/temporal_{filename_part}_{norm}.json', 'w') as f_dist:
                 f_dist.write(json.dumps({
                     'z': topic_dist_.T.tolist(),
                     'x': time_groups,
@@ -141,6 +141,7 @@ if __name__ == '__main__':
     file_tweets = args.file_tweets or f'data/{args.dataset}/tweets_filtered_{args.limit}.jsonl'
     target_dir = args.output_directory or f'data/{args.dataset}/topics/'
     file_labels = args.file_labels or os.path.join(target_dir, f'labels_{args.limit}_{args.projection}.npy')
+    file_dump = os.path.join(target_dir, f'dump_{args.limit}_{args.temporal_grouping}.json')
 
     if args.mode == 'cluster':
         from utils.cluster import Config as SlurmConfig
@@ -186,9 +187,13 @@ if __name__ == '__main__':
             labels = get_cluster_labels(layout, min_samples=args.min_samples, min_cluster_size=args.min_cluster_size,
                                         cluster_selection_epsilon=args.cluster_selection_epsilon, alpha=args.alpha,
                                         cluster_selection_method=args.cluster_selection_method)
+            print(f'Saving cluster assignments to {file_labels}')
             np.save(file_labels, labels)
 
-        topic_ids = np.unique(labels)
+        topic_ids, topic_sizes = np.unique(labels, return_counts=True)
+        print(f'Num topics: {len(topic_ids)}, mean size: {topic_sizes[1:].mean():.1f}, '
+              f'median size: {np.median[1:]:.1f}, num outliers: {topic_sizes[0]:,},'
+              f'largest cluster: {topic_sizes[1:].max():,}')
 
         print('Loading tweets...')
         with open(file_tweets) as f_in:
@@ -225,5 +230,5 @@ if __name__ == '__main__':
                                                           norms=['abs', 'row', 'col'])
 
         dump = get_dump()
-        with open(os.path.join(args.output_directory, f'dump_{args.limit}_{args.temporal_grouping}.json'), 'w') as f:
+        with open(file_dump, 'w') as f:
             f.write(json.dumps(dump))
