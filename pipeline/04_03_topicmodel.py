@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
         topic_ids, topic_sizes = np.unique(labels, return_counts=True)
         print(f'Num topics: {len(topic_ids)}, mean size: {topic_sizes[1:].mean():.1f}, '
-              f'median size: {np.median[1:]:.1f}, num outliers: {topic_sizes[0]:,},'
+              f'median size: {np.median(topic_sizes[1:]):.1f}, num outliers: {topic_sizes[0]:,},'
               f'largest cluster: {topic_sizes[1:].max():,}')
 
         print('Loading tweets...')
@@ -229,6 +229,10 @@ if __name__ == '__main__':
                                                                   ['retweets', 'likes', 'replies']],
                                                           norms=['abs', 'row', 'col'])
 
+        print('Preparing dump...')
         dump = get_dump()
+        print('Writing dump...')
         with open(file_dump, 'w') as f:
             f.write(json.dumps(dump))
+
+        print(':-) All done (-:')
