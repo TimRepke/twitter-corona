@@ -217,6 +217,7 @@
                 groups: dump.groups,
                 topics: dump.topics.map((topic, index) => {
                     topic.id = index;
+                    topic.n_tweets_orig = topic.n_tweets;
                     return topic;
                 }),
                 'index': index,
@@ -288,7 +289,10 @@
             },
             filteredTopics: function () {
                 if (this.searchResult === null) {
-                    return this.topics;
+                    return this.topics.map((topic) => {
+                        topic.n_tweets = topic.n_tweets_orig;
+                        return topic;
+                    });
                 } else {
                     let topicCounts = this.searchResult.reduce(function (acc, curr) {
                         acc[curr.topic] = acc[curr.topic] ? acc[curr.topic] + 1 : acc[curr.topic] = 1;
