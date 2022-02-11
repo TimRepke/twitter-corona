@@ -175,7 +175,7 @@ class Config:
         if self.partition == 'gpu':
             ret += f'#SBATCH --gres=gpu:{self.gpu_type}:{self.n_gpus}\n'
         ret += f'#SBATCH --nodes=1\n'
-        ret += f'#SBATCH --cpus-per-task={self.n_cpus}'
+        ret += f'#SBATCH --cpus-per-task={self.n_cpus}\n'
         ret += f'#SBATCH --mem={self.memory}\n'
         ret += f'#SBATCH --output={self.std_out}\n'
         ret += f'#SBATCH --error={self.std_err}\n'
