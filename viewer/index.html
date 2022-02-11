@@ -99,6 +99,7 @@
                 v-for="topic in filteredTopics"
                 :key="topic.id"
                 :class="{ active: isActive(topic.id) }"
+                :id="`topic-${topic.id}`"
                 @click="selectTopic(topic.id)">
                 <div class="ms-2 me-auto">
                     <div class="fw-bold">Topic {{topic.id}}</div>
@@ -207,12 +208,12 @@
                    :max="prePost[prePostSet].max"
                    v-model="minClusterSize" id="min-cluster-size"-->
             <input type="range" class="form-range" min="0" max="1000"
-                   v-model="minClusterSizeSlide" id="min-cluster-size">
+                   v-model="minClusterSizeSlide" id="min-cluster-size"/>
             <label for="max-cluster-size" class="form-label">
                 Maximum Cluster Size: {{maxClusterSize.toLocaleString('en', {maximumFractionDigits: 0})}}
             </label>
             <input type="range" class="form-range" min="0" max="1000"
-                   v-model="maxClusterSizeSlide" id="max-cluster-size">
+                   v-model="maxClusterSizeSlide" id="max-cluster-size"/>
             <!--input type="range" class="form-range" min="0"
                    :max="prePost[prePostSet].max"
                    v-model="maxClusterSize" id="max-cluster-size"-->
@@ -228,27 +229,36 @@
                 </div>
                 <div class="col">
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="upper-triangle" v-model="upperTriangle">
+                        <input class="form-check-input" type="checkbox" role="switch" id="upper-triangle"
+                               v-model="upperTriangle">
                         <label class="form-check-label" for="upper-triangle">Upper Triangle</label>
                     </div>
                     <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="lower-triangle" v-model="lowerTriangle">
+                        <input class="form-check-input" type="checkbox" role="switch" id="lower-triangle"
+                               v-model="lowerTriangle">
                         <label class="form-check-label" for="lower-triangle">Lower Triangle</label>
                     </div>
+                </div>
+                <div class="col">
+                    <label for="diag-offset" class="form-label">
+                        Distance to diagonal: {{diagonalOffset}}</label>
+                    <input type="range" class="form-range" min="0" max="1" step="0.05"
+                           v-model="diagonalOffset" id="diag-offset"/>
                 </div>
             </div>
             <svg viewBox="-5 -5 110 110" xmlns="http://www.w3.org/2000/svg"
                  class="m-5 border">
                 <line x1="0" x2="100" y1="100" y2="0"
-                      style="stroke: green; stroke-width: 2; opacity: 0.2"/>
+                      :stroke-width="diagonalOffset*50"
+                      style="stroke: green;  opacity: 0.2"/>
                 <line x1="0" x2="100" y1="100" y2="0"
                       style="stroke: green; stroke-width: 0.2; stroke-dasharray: 0.5,1;"/>
 
-                <line :x1="norm(minClusterSize)*100" x2="100"
+                <line :x1="norm(minClusterSize)*100" x2="0"
                       :y1="100-norm(minClusterSize)*100" :y2="100-norm(minClusterSize)*100"
                       style="stroke: #ad452e; stroke-width: 0.2; stroke-dasharray: 0.5,1;"/>
                 <line :x1="norm(minClusterSize)*100" :x2="norm(minClusterSize)*100"
-                      y1="0" :y2="100-norm(minClusterSize)*100"
+                      y1="100" :y2="100-norm(minClusterSize)*100"
                       style="stroke: #ad452e; stroke-width: 0.2; stroke-dasharray: 0.5,1;"/>
 
                 <line x1="0" :x2="norm(maxClusterSize)*100"
@@ -263,8 +273,7 @@
                         :cx="norm(vector[0])*100"
                         :cy="100-norm(vector[1])*100"
                         fill="blue"
-                        :fill-opacity="vector[0] >= minClusterSize && vector[0]<=maxClusterSize &&
-                                       vector[1] >= minClusterSize && vector[1]<=maxClusterSize ? 1 : 0.2"
+                        :fill-opacity="topicInRange(index) ? 1 : 0.2"
                         @click="selectedTopic=index"/>
 
             </svg>
@@ -317,6 +326,7 @@
                 prePostSet: 'count',
                 minClusterSizeSlide: 0,
                 maxClusterSizeSlide: 1000,
+                diagonalOffset: 0,
                 upperTriangle: true,
                 lowerTriangle: true,
                 selectedPage: 0,
@@ -332,7 +342,12 @@
         },
         watch: {
             selectedTopic: function (newTopic, oldTopic) {
-                document.getElementById('topic-list').children[newTopic].scrollIntoView()
+                try {
+                    //document.getElementById('topic-list').children[newTopic].scrollIntoView();
+                    document.getElementById(`topic-${newTopic}`).scrollIntoView();
+                } catch (e) {
+                    console.log('could not jump to topic', newTopic, oldTopic);
+                }
             }
         },
         methods: {
@@ -360,8 +375,13 @@
                 return Math.log10(val + 1) / Math.log10(this.prePost[this.prePostSet].max)
             },
             topicInRange(topicIndex) {
-                let topic = this.topics[topicIndex];
-                return topic.n_tweets_orig >= this.minClusterSize && topic.n_tweets_orig <= this.maxClusterSize
+                let vector = this.prePost[this.prePostSet].vectors[topicIndex];
+                let topicSize = vector[0] + vector[1];
+                return topicSize >= this.minClusterSize &&
+                    topicSize <= this.maxClusterSize &&
+                    Math.abs(vector[0]-vector[1])/(vector[0]+vector[1])>=this.diagonalOffset &&
+                    ((!this.upperTriangle && vector[0] >= vector[1]) || this.upperTriangle) &&
+                    ((!this.lowerTriangle && vector[0] <= vector[1]) || this.lowerTriangle);
             }
         },
         computed: {
@@ -406,8 +426,7 @@
                 }
             },
             filteredTopics: function () {
-                let sizeFilteredTopics = this.topics.filter((topic) =>
-                    topic.n_tweets_orig >= this.minClusterSize && topic.n_tweets_orig <= this.maxClusterSize);
+                let sizeFilteredTopics = this.topics.filter((topic, topicIndex) => this.topicInRange(topicIndex));
 
                 if (this.searchResult === null) {
                     return sizeFilteredTopics.map((topic) => {
