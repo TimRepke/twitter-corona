@@ -9,9 +9,9 @@ from sklearn.cluster import KMeans
 from matplotlib import pyplot as plt
 
 DATASET = 'climate2'
-LIMIT = 100000
-SOURCE_DIR = f'data/{DATASET}/topics'
-TARGET_DIR = f'data/{DATASET}/topics/temporal_count'
+LIMIT = 7000000
+SOURCE_DIR = f'data/{DATASET}/topics_big'
+TARGET_DIR = f'data/{DATASET}/topics_big/temporal_count'
 os.makedirs(TARGET_DIR, exist_ok=True)
 
 DATE_FORMAT: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'monthly'
@@ -21,7 +21,7 @@ N_CLUSTERS = 4
 
 for boost in [[], ['retweets', 'likes']]:  # ['retweets'], ['replies'], ['likes'],
     for norm in ['col', 'row', 'abs']:  # 'both',
-        with open(f'{SOURCE_DIR}/temporal/tt_{LIMIT}_{DATE_FORMAT}_abs_{"_".join(boost)}.json') as f:
+        with open(f'{SOURCE_DIR}/temporal__{LIMIT}_{DATE_FORMAT}_{"_".join(boost or ["raw"])}_abs.json') as f:
             data = json.load(f)
             vectors = np.array(data['z'])[1:]
             topics = data['y']
@@ -95,15 +95,15 @@ for boost in [[], ['retweets', 'likes']]:  # ['retweets'], ['replies'], ['likes'
                           annotation_font_size=10,
                           annotation_font_color="blue")
 
-        fig.update_layout(title=f'Norm: {norm}, boost: {"_".join(boost)}, '
+        fig.update_layout(title=f'Norm: {norm}, boost: {"_".join(boost or ["raw"])}, '
                                 f'cluster dist: {np.unique(labels, return_counts=True)}')
         # fig.show()
-        fig.write_html(f'{TARGET_DIR}/splits_{LIMIT}_{DATE_FORMAT}_{norm}_{"_".join(boost)}.html')
+        fig.write_html(f'{TARGET_DIR}/splits_{LIMIT}_{DATE_FORMAT}_{"_".join(boost or ["raw"])}_{norm}.html')
 
         x = np.arange(len(groups))
         for c in np.unique(labels):
             y = vectors[labels == c].sum(axis=0)
             plt.plot(x, y, label=f'cluster {c}')
-        plt.title(f'Norm: {norm}, boost: {"_".join(boost)}')
+        plt.title(f'Norm: {norm}, boost: {"_".join(boost or ["raw"])}')
         plt.legend()
         plt.show()
