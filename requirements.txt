@@ -196,3 +196,4 @@ zict==2.0.0
 zipp==3.6.0
 typed-argument-parser
 parallel-ssh
+simpletransformers

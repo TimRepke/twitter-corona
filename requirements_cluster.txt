@@ -16,3 +16,4 @@ colorcet
 typed-argument-parser
 hnswlib
 pandas
+simpletransformers
