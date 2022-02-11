@@ -64,6 +64,9 @@ def embed_tweets(
 
 if __name__ == '__main__':
     args = TweetEmbeddingArgs(underscores_to_dashes=True).parse_args()
+    if args.args_file is not None:
+        print(f'Dropping keyword arguments and loading from file: {args.args_file}')
+        args = TweetEmbeddingArgs().load(args.args_file)
 
     _include_hashtags = not args.excl_hashtags
 
