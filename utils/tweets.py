@@ -126,10 +126,11 @@ class FilterResult:
     has_text: bool = False
     has_max_hashtags: bool = False
     has_min_tokens: bool = False
+    has_climate: bool = False
 
 
 class TweetFilter:
-    def __init__(self, only_en: bool, allow_lang_null: bool, min_tokens: int, allow_duplicates: bool,
+    def __init__(self, only_en: bool, allow_lang_null: bool, min_tokens: int, allow_duplicates: bool, has_climate: bool,
                  max_hashtags: int, from_date: str = None, to_date: str = None, duplicate_include_author: bool = False):
         self.only_en = only_en
         self.allow_duplicates = allow_duplicates
@@ -139,11 +140,12 @@ class TweetFilter:
         self.from_date = from_date
         self.to_date = to_date
         self.duplicate_include_author = duplicate_include_author
+        self.has_climate = has_climate
 
         self.hashes = set()
 
     def get_hash(self, tweet):
-        s = tweet["clean_text"].lower()
+        s = tweet['clean_text'].lower()
         if self.duplicate_include_author:
             s += f'|{tweet["author_id"]}'
         return hashlib.md5(s.encode()).digest()
@@ -176,8 +178,11 @@ class TweetFilter:
             result.has_min_tokens = tweet['meta']['n_tokens_raw'] >= self.min_tokens
             result.has_max_hashtags = tweet['meta']['n_hashtags'] <= self.max_hashtags
 
+        result.has_climate = 'climate' in tweet['clean_text'].lower()
+
         if result.accept_lang and result.has_text and result.has_min_tokens and \
-                result.has_max_hashtags and result.past_from_date and result.pre_to_date:
+                result.has_max_hashtags and result.past_from_date and result.pre_to_date and\
+                (not self.has_climate or result.has_climate):
             if self.allow_duplicates:
                 result.accept = True
                 return result

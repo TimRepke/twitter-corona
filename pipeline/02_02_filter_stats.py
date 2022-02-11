@@ -1,20 +1,8 @@
 import os
 from tqdm import tqdm
 
-# DATASET = 'geoengineering'
-DATASET = 'climate2'
-
-ONLY_EN = True
-ALLOW_LANG_NULL = True
-MIN_TOKENS = 4
-MAX_HASHTAGS = 5
-FROM_DATE = '2018-01'
-TO_DATE = '2022-01'
-
-RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_{ONLY_EN}_{ALLOW_LANG_NULL}_{MIN_TOKENS}_' \
-                 f'{MAX_HASHTAGS}_{FROM_DATE}_{TO_DATE}.txt'
-IRRELEVANCE_FILE = f'data/{DATASET}/tweets_irrelevant_{ONLY_EN}_{ALLOW_LANG_NULL}_{MIN_TOKENS}_' \
-                   f'{MAX_HASHTAGS}_{FROM_DATE}_{TO_DATE}.txt'
+RELEVANCE_FILE = 'data/climate2/tweets_relevant_True_True_4_5_2018-01_2022-01_True_False_False.txt'
+IRRELEVANCE_FILE = 'data/climate2/tweets_irrelevant_True_True_4_5_2018-01_2022-01_True_False_False.txt'
 
 with open(RELEVANCE_FILE) as f_rel, open(IRRELEVANCE_FILE) as f_irrel:
     print('Reading data...')
@@ -45,3 +33,5 @@ with open(RELEVANCE_FILE) as f_rel, open(IRRELEVANCE_FILE) as f_irrel:
     print(f'pre from date: {pfd:,} ({pfd / total:.2%})')
     ptd = sum([i[6] for i in nondup_irrel])
     print(f'past to date: {ptd:,} ({ptd / total:.2%})')
+    nc = sum([i[7] for i in nondup_irrel])
+    print(f'no climate: {nc:,} ({nc / total:.2%})')

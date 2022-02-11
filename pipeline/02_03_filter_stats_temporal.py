@@ -1,34 +1,47 @@
-from datetime import datetime
 import json
-from abc import ABC, abstractmethod
-import numpy as np
 from tqdm import tqdm
-from utils.tweets import clean_tweet, read_tweets, s2time
-import math
-import time
-from typing import Literal
+from utils.tweets import s2time
+from typing import Literal, Optional
 import plotly.graph_objects as go
-from colorcet import glasbey
-import hashlib
 import os
 from collections import defaultdict
-from utils.tweets import get_hash
+from tap import Tap
+from utils.tweets import TweetFilter
 
-# DATASET = 'geoengineering'
-DATASET = 'climate2'
-SOURCE_FILE = f'data/{DATASET}/tweets_clean.jsonl'
 
-TARGET_FOLDER = f'data/{DATASET}/stats'
-os.makedirs(TARGET_FOLDER, exist_ok=True)
+class FilterArgs(Tap):
+    dataset: str = 'climate2'
+    limit: int = 7000000
+    only_en: bool = True
+    from_date: Optional[str] = '2018-01'
+    to_date: Optional[str] = '2022-01'
+    allow_lang_null: bool = True
+    has_climate: bool = True
+    min_tokens: int = 4
+    max_hashtags: int = 5
+    allow_duplicates: bool = False
+    duplicate_include_author: bool = False
 
-MIN_TOKENS = 4
-MAX_HASHTAGS = 5
-DATE_FORMAT: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'monthly'
+    date_format: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'monthly'
 
-FORMATS = {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}
-FORMAT = FORMATS[DATE_FORMAT]
+    @property
+    def source_file(self) -> str:
+        return f'data/{self.dataset}/tweets_clean.jsonl'
+
+    @property
+    def target_folder(self) -> str:
+        return f'data/{self.dataset}/stats'
+
+    @property
+    def format(self):
+        return {'yearly': '%Y', 'monthly': '%Y-%m', 'weekly': '%Y-%W', 'daily': '%Y-%m-%d'}[self.date_format]
+
 
 if __name__ == '__main__':
+
+    args = FilterArgs().parse_args()
+    os.makedirs(args.target_folder, exist_ok=True)
+
     groups = defaultdict(lambda: {
         'total': 0,
         'duplicate': 0,
@@ -37,51 +50,55 @@ if __name__ == '__main__':
         'leq_min_tokens': 0,
         'geq_max_hashtags': 0,
         'relevant': 0,
-        'not_relevant': 0
+        'not_relevant': 0,
+        'no_climate': 0
     })
     print('Processing...')
-    with open(SOURCE_FILE, 'r') as f_in:
-        hashes = set()
+    with open(args.source_file, 'r') as f_in:
+
+        tweet_filter = TweetFilter(only_en=args.only_en, allow_lang_null=args.allow_lang_null,
+                                   min_tokens=args.min_tokens, allow_duplicates=args.allow_duplicates,
+                                   max_hashtags=args.max_hashtags, from_date=args.from_date,
+                                   to_date=args.to_date, duplicate_include_author=args.duplicate_include_author,
+                                   has_climate=args.has_climate)
+
         for line_i, line in tqdm(enumerate(f_in)):
             tweet_o = json.loads(line)
-            lang = tweet_o.get('lang', None)
-            is_en = lang == 'en'
-            is_en_or_null = is_en or lang is None
-            has_min_tokens = tweet_o['meta']['n_tokens_raw'] >= MIN_TOKENS
-            has_max_hashtags = tweet_o['meta']['n_hashtags'] <= MAX_HASHTAGS
 
-            grp = s2time(tweet_o['created_at']).strftime(FORMAT)
+            result = tweet_filter.is_relevant(tweet_o)
+
+            grp = s2time(tweet_o['created_at']).strftime(args.format)
 
             groups[grp]['total'] += 1
-            if is_en_or_null and has_min_tokens and has_max_hashtags:
-                h = get_hash(tweet_o, include_author=False)
-                if h not in hashes:
+            if result.accept_lang and result.has_min_tokens and result.has_max_hashtags and result.has_climate:
+                if not result.duplicate:
                     # relevant and non-duplicate
                     groups[grp]['relevant'] += 1
                 else:
                     groups[grp]['not_relevant'] += 1
                     groups[grp]['duplicate'] += 1
-                hashes.add(h)
             else:
+                lang = tweet_o.get('lang', None)
                 groups[grp]['not_relevant'] += 1
-                if not is_en:
+                if not tweet_o.get('lang', None) == 'en':
                     groups[grp]['not_en'] += 1
                     if lang is None:
                         groups[grp]['lang_null'] += 1
-                if not has_min_tokens:
+                if not result.has_min_tokens:
                     groups[grp]['leq_min_tokens'] += 1
-                if not has_max_hashtags:
+                if not result.has_max_hashtags:
                     groups[grp]['geq_max_hashtags'] += 1
+                if not result.has_climate:
+                    groups[grp]['no_climate'] += 1
 
         # clear up memory
-        del hashes
+        del tweet_filter
 
     srt_grps = list(sorted(groups.keys()))
     axis = [f'd:{k}' for k in srt_grps]
-    for key in ['total', 'duplicate', 'not_en', 'lang_null',
+    for key in ['total', 'duplicate', 'not_en', 'lang_null', 'no_climate',
                 'leq_min_tokens', 'geq_max_hashtags', 'relevant', 'not_relevant']:
         values = [groups[k][key] for k in srt_grps]
 
-        fig = go.Figure([go.Bar(x=axis,
-                                y=values)])
-        fig.write_html(f'{TARGET_FOLDER}/histogram_{DATE_FORMAT}_{key}.html')
+        fig = go.Figure([go.Bar(x=axis, y=values)])
+        fig.write_html(f'{args.target_folder}/histogram_{args.date_format}_{key}.html')
