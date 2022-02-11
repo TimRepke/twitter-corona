@@ -23,6 +23,8 @@ class TweetEmbeddingArgs(ClusterJobBaseArguments):
     cluster_jobname: str = 'twitter-embed'
     cluster_workdir: str = 'twitter'
 
+    cluster_gpu: bool = True
+
 
 def clean_clean_text(txt):
     return txt.replace('MENTION', '').replace('URL', '').replace('HASHTAG', '')
@@ -80,7 +82,6 @@ if __name__ == '__main__':
         from utils.cluster.files import FileHandler
 
         s_config = SlurmConfig.from_args(args,
-                                         partition='gpu',
                                          env_vars_run={
                                              'OPENBLAS_NUM_THREADS': 1,
                                              'TRANSFORMERS_OFFLINE': 1

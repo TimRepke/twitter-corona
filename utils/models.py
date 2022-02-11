@@ -6,16 +6,83 @@ from transformers import (AutoModel,
                           AutoModelForSequenceClassification,
                           AutoTokenizer, TextClassificationPipeline)
 import torch
-from typing import Literal, Union, List
+from typing import Literal, Union, Optional
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
 
 
-@dataclass
 class Classifier:
-    hf_name: str
-    labels: List[str]
+    def __init__(self, hf_name: str, labels: list[str]):
+        self.hf_name = hf_name
+        self.labels = labels
+
+    @property
+    def num_labels(self) -> int:
+        return len(self.labels)
+
+    @property
+    def label2id(self) -> dict[str, int]:
+        return {k: i for i, k in enumerate(self.labels)}
+
+    @property
+    def id2label(self) -> dict[int, str]:
+        return {i: k for i, k in enumerate(self.labels)}
+
+    def store(self, target_dir: Path):
+        target = str(target_dir)
+        os.makedirs(target, exist_ok=True)
+
+        pretrained_model = AutoModelForSequenceClassification.from_pretrained(self.hf_name)
+        pretrained_model.save_pretrained(target)
+
+        tokenizer = AutoTokenizer.from_pretrained(self.hf_name)
+        tokenizer.save_pretrained(target)
+
+    def load(self, target_dir: Path, device: int) -> TextClassificationPipeline:
+        target = str(target_dir)
+        pretrained_model = AutoModelForSequenceClassification.from_pretrained(target,
+                                                                              num_labels=self.num_labels,
+                                                                              label2id=self.label2id,
+                                                                              id2label=self.id2label)
+        tokenizer = AutoTokenizer.from_pretrained(target, use_fast=True)
+        return TextClassificationPipeline(model=pretrained_model, tokenizer=tokenizer, device=device)
+
+
+class CARDSClassifier(Classifier):
+    URL = 'https://socialanalytics.ex.ac.uk/cards/models.zip'
+
+    def store(self, target_dir: Path):
+        import requests
+        import zipfile
+        target = str(target_dir)
+        zip_file = os.path.join(target, 'cards_model.zip')
+        os.makedirs(target, exist_ok=True)
+
+        # wget -nc --no-check-certificate https://socialanalytics.ex.ac.uk/cards/models.zip
+        r = requests.get(self.URL)
+        with open(zip_file, 'wb') as model_file:
+            model_file.write(r.content)
+
+        # unzip -n models.zip
+        with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+            zip_ref.extractall(target)
+
+        # unzip -n models/CARDS_RoBERTa_Classifier.zip -d models
+        with zipfile.ZipFile(f'{target}/models/CARDS_RoBERTa_Classifier.zip', 'r') as zip_ref:
+            zip_ref.extractall(f'{target}/models/')
+
+        os.remove(zip_file)
+
+    def load(self, target_dir: Path, device: int):
+        from simpletransformers.classification import ClassificationModel
+
+        model = ClassificationModel(
+            model_type='roberta',
+            model_name=f'{target_dir}/models/CARDS_RoBERTa_Classifier',
+            use_cuda=device == 0
+        )
+        return model
 
 
 @dataclass
@@ -95,6 +162,8 @@ CLASSIFIERS = {
     # https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english/blob/main/config.json
     'bert-sst2': Classifier(hf_name='distilbert-base-uncased-finetuned-sst-2-english',
                             labels=['negative', 'positive']),
+    'cards': CARDSClassifier(hf_name='CARDS',
+                             labels=[])
 }
 EMBEDDERS = {
     'bertweet': Embedder(hf_name='vinai/bertweet-large', kind='transformer'),
@@ -109,17 +178,17 @@ class BaseEmbedder(ABC):
 
     @abstractmethod
     def embed(self,
-              documents: List[str],
+              documents: list[str],
               verbose: bool = False) -> np.ndarray:
         raise NotImplementedError()
 
     def embed_words(self,
-                    words: List[str],
+                    words: list[str],
                     verbose: bool = False) -> np.ndarray:
         return self.embed(words, verbose)
 
     def embed_documents(self,
-                        documents: List[str],
+                        documents: list[str],
                         verbose: bool = False) -> np.ndarray:
         return self.embed(documents, verbose)
 
@@ -132,7 +201,7 @@ class AutoModelBackend(BaseEmbedder):
         self.embedding_model = AutoModel.from_pretrained(embedding_model)
 
     def embed(self,
-              documents: List[str],
+              documents: list[str],
               verbose: bool = False) -> np.ndarray:
         tokenised = torch.tensor([self.tokenizer.encode(d) for d in documents])
         embeddings = self.embedding_model.encode(tokenised, show_progress_bar=verbose)
@@ -146,7 +215,7 @@ class SentenceTransformerBackend(BaseEmbedder):
         self.embedding_model = SentenceTransformer(embedding_model)
 
     def embed(self,
-              documents: List[str],
+              documents: list[str],
               verbose: bool = False) -> np.ndarray:
         embeddings = self.embedding_model.encode(documents, show_progress_bar=verbose)
         return embeddings
@@ -174,11 +243,6 @@ class ModelCache:
     def to_safe_name(name: str):
         return re.sub(r'[^A-Za-z0-9]', '_', name)
 
-    @staticmethod
-    def _cache_tokenizer(real_model_name: str, cache_path: Union[str, Path]):
-        tokenizer = AutoTokenizer.from_pretrained(real_model_name)
-        tokenizer.save_pretrained(str(cache_path))
-
     def cache_model(self, model_name: str):
         if model_name in CLASSIFIERS:
             self.cache_classifier(model_name)
@@ -200,22 +264,18 @@ class ModelCache:
             else:
                 pretrained_model = AutoModel.from_pretrained(real_model_name)
                 pretrained_model.save_pretrained(model_cache_path)
-                self._cache_tokenizer(real_model_name, model_cache_path)
+
+                tokenizer = AutoTokenizer.from_pretrained(real_model_name)
+                tokenizer.save_pretrained(model_cache_path)
         else:
             print(f'Already cached {model_name}')
 
     def cache_classifier(self, model_name: str):
         print(f'Checking for {model_name} in {self.cache_dir}')
         if not self.is_cached(model_name):
-            real_model_name = CLASSIFIERS[model_name].hf_name
-            model_cache_path = str(self.get_model_path(model_name))
-            print(f'Downloading and caching {model_name} ({real_model_name} at {model_cache_path})')
-            os.makedirs(model_cache_path, exist_ok=True)
-            pretrained_model = (
-                AutoModelForSequenceClassification.from_pretrained(real_model_name)
-            )
-            pretrained_model.save_pretrained(model_cache_path)
-            self._cache_tokenizer(real_model_name, model_cache_path)
+            model_cache_path = self.get_model_path(model_name)
+            print(f'Downloading and caching {model_name} ({CLASSIFIERS[model_name].hf_name} at {model_cache_path})')
+            CLASSIFIERS[model_name].store(model_cache_path)
         else:
             print(f'Already cached {model_name}')
 
@@ -246,23 +306,21 @@ class ModelCache:
             use_cuda = False
         return use_cuda
 
+    @staticmethod
+    def _get_classifier(model_name: str) -> Classifier:
+        if model_name not in CLASSIFIERS:
+            raise KeyError(f'Classifier {model_name} unknown.')
+        return CLASSIFIERS[model_name]
+
     def get_classifier(self, model_name: str):
         # ensure the model is downloaded
         self.cache_classifier(model_name)
 
-        labels = CLASSIFIERS[model_name].labels
+        classifier = self.get_classifier(model_name)
         model_cache_path = self.get_model_path(model_name)
         use_cuda = self._set_cuda_settings()
         device = 0 if use_cuda else -1
-
-        pretrained_model = AutoModelForSequenceClassification.from_pretrained(
-            model_cache_path,
-            num_labels=len(labels),
-            label2id={k: i for i, k in enumerate(labels)},
-            id2label={i: k for i, k in enumerate(labels)})
-        tokenizer = AutoTokenizer.from_pretrained(model_cache_path, use_fast=True)
-        classifier = TextClassificationPipeline(
-            model=pretrained_model, tokenizer=tokenizer, device=device)
+        classifier.load(model_cache_path, device=device)
         return classifier
 
     def get_embedder(self, model_name: str):
