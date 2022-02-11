@@ -178,7 +178,7 @@
                         <a class="float-end" :href="`https://twitter.com/s/status/${tweet.id}`" target="_blank"><i
                                 class="bi-twitter"></i></a>
                     </p>
-                    <p class="card-text">{{tweet.text}}</p>
+                    <p class="card-text" v-html="linkify(tweet.text)"></p>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
                     <small class="text-muted">
@@ -371,6 +371,12 @@
                 this.searchResult = null;
                 this.selectedPage = 0;
             },
+            linkify: function (t) {
+                let ret = t;
+                ret = ret.replaceAll(/@([^ ]+)/g, '<a target="_blank" href="https://twitter.com/$1">@$1</a>');
+                ret = ret.replaceAll(/(https:\/\/t\.co\/[A-Za-z0-9]+)/g, '<a target="_blank" href="$1">$1</a>');
+                return ret;
+            },
             norm: function (val) {
                 return Math.log10(val + 1) / Math.log10(this.prePost[this.prePostSet].max)
             },
@@ -379,7 +385,7 @@
                 let topicSize = vector[0] + vector[1];
                 return topicSize >= this.minClusterSize &&
                     topicSize <= this.maxClusterSize &&
-                    Math.abs(vector[0]-vector[1])/(vector[0]+vector[1])>=this.diagonalOffset &&
+                    Math.abs(vector[0] - vector[1]) / (vector[0] + vector[1]) >= this.diagonalOffset &&
                     ((!this.upperTriangle && vector[0] >= vector[1]) || this.upperTriangle) &&
                     ((!this.lowerTriangle && vector[0] <= vector[1]) || this.lowerTriangle);
             }
