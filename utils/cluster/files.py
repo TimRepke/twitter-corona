@@ -1,7 +1,6 @@
 import re
 
 from pssh.clients import SSHClient
-from pssh.exceptions import SFTPIOError
 from typing import List
 import subprocess
 import shlex

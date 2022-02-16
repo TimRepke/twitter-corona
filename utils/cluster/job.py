@@ -1,12 +1,6 @@
 import re
 
 from pssh.clients import SSHClient
-from pssh.exceptions import SFTPIOError
-from typing import List, Literal, Optional, Union, Pattern
-from dataclasses import dataclass, field
-from pathlib import Path
-import subprocess
-import shlex
 import tempfile
 import time
 import os
@@ -89,7 +83,7 @@ class ClusterJob:
         else:
             if params.upload_data:
                 self.file_handler.upload_data()
-            if params.upload_model:
+            if params.upload_models:
                 self.file_handler.cache_upload_models()
 
             self.file_handler.sync_code()

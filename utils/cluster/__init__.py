@@ -18,7 +18,7 @@ class ClusterJobBaseArguments(Tap):
     cluster_workdir: str
 
     upload_data: bool = False  # Set this flag to force data upload to cluster
-    upload_model: bool = False  # Set this flag to force model upload to cluster
+    upload_models: bool = False  # Set this flag to force model upload to cluster
     cluster_init: bool = False  # Set this flag to initialise the cluster environment
     python_unbuffered: bool = False  # Set this flag to activate python unbuffered mode
 
