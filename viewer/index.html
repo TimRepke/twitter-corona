@@ -75,6 +75,26 @@
             z-index: 1000 !important;
             margin-left: -3rem !important;
         }
+
+        .layer-img {
+            position: absolute;
+            top: 0;
+            width: 90%;
+            margin: 4%;
+        }
+
+        .layer-img:first-child {
+            border: 1px solid black;
+        }
+
+        .layer-img-highlight {
+            mix-blend-mode: color;
+            background-color: red;
+        }
+
+        .layer-img-dim {
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -201,23 +221,32 @@
             <h5 id="offcanvasRightLabel">Topic Filters</h5>
         </div>
         <div class="offcanvas-body">
-            <label for="min-cluster-size" class="form-label">
-                Minimum Cluster Size: {{minClusterSize.toLocaleString('en', {maximumFractionDigits: 0})}}
-            </label>
-            <!--input type="range" class="form-range" min="0"
-                   :max="prePost[prePostSet].max"
-                   v-model="minClusterSize" id="min-cluster-size"-->
-            <input type="range" class="form-range" min="0" max="1000"
-                   v-model="minClusterSizeSlide" id="min-cluster-size"/>
-            <label for="max-cluster-size" class="form-label">
-                Maximum Cluster Size: {{maxClusterSize.toLocaleString('en', {maximumFractionDigits: 0})}}
-            </label>
-            <input type="range" class="form-range" min="0" max="1000"
-                   v-model="maxClusterSizeSlide" id="max-cluster-size"/>
-            <!--input type="range" class="form-range" min="0"
-                   :max="prePost[prePostSet].max"
-                   v-model="maxClusterSize" id="max-cluster-size"-->
-            <div class="row">
+            <div class="row p-3">
+                <div class="col">
+                    Number of Filtered Topics: {{filteredTopics.length}}
+                </div>
+            </div>
+            <div class="row p-3">
+                <div class="col">
+                    <label for="min-cluster-size" class="form-label">
+                        Minimum Topic Size: {{minClusterSize.toLocaleString('en', {maximumFractionDigits: 0})}}
+                    </label>
+                    <!--input type="range" class="form-range" min="0"
+                           :max="prePost[prePostSet].max"
+                           v-model="minClusterSize" id="min-cluster-size"-->
+                    <input type="range" class="form-range" min="0" max="1000"
+                           v-model="minClusterSizeSlide" id="min-cluster-size"/>
+                    <label for="max-cluster-size" class="form-label">
+                        Maximum Topic Size: {{maxClusterSize.toLocaleString('en', {maximumFractionDigits: 0})}}
+                    </label>
+                    <input type="range" class="form-range" min="0" max="1000"
+                           v-model="maxClusterSizeSlide" id="max-cluster-size"/>
+                    <!--input type="range" class="form-range" min="0"
+                           :max="prePost[prePostSet].max"
+                           v-model="maxClusterSize" id="max-cluster-size"-->
+                </div>
+            </div>
+            <div class="row p-3">
                 <div class="col">
                     <select class="form-select" v-model="prePostSet">
                         <option value="count">Count only</option>
@@ -231,19 +260,46 @@
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="upper-triangle"
                                v-model="upperTriangle">
-                        <label class="form-check-label" for="upper-triangle">Upper Triangle</label>
+                        <label class="form-check-label" for="upper-triangle">Upper Triangle (post)</label>
                     </div>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="lower-triangle"
                                v-model="lowerTriangle">
-                        <label class="form-check-label" for="lower-triangle">Lower Triangle</label>
+                        <label class="form-check-label" for="lower-triangle">Lower Triangle (pre)</label>
                     </div>
                 </div>
                 <div class="col">
                     <label for="diag-offset" class="form-label">
-                        Distance to diagonal: {{diagonalOffset}}</label>
+                        Distance to Diagonal: {{diagonalOffset}}</label>
                     <input type="range" class="form-range" min="0" max="1" step="0.05"
                            v-model="diagonalOffset" id="diag-offset"/>
+                </div>
+            </div>
+            <div class="row p-3">
+                <div class="col">
+                    Spot topics<br/>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="spotsel1"
+                               value="0" v-model="spotTopicBehaviour">
+                        <label class="form-check-label" for="spotsel1">Include</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="spotsel2"
+                               value="-1" v-model="spotTopicBehaviour">
+                        <label class="form-check-label" for="spotsel2">Exclude</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="spotsel3"
+                               value="1" v-model="spotTopicBehaviour">
+                        <label class="form-check-label" for="spotsel3">Isolate</label>
+                    </div>
+                </div>
+                <div class="col">
+                    <label for="spot-topic-threshold" class="form-label">
+                        Spot Topic Threshold: {{spotTopicThreshold}}%
+                    </label>
+                    <input type="range" class="form-range" min="0" max="100"
+                           v-model="spotTopicThreshold" id="spot-topic-threshold"/>
                 </div>
             </div>
             <svg viewBox="-5 -5 110 110" xmlns="http://www.w3.org/2000/svg"
@@ -273,7 +329,7 @@
                         :cx="norm(vector[0])*100"
                         :cy="100-norm(vector[1])*100"
                         fill="blue"
-                        :fill-opacity="topicInRange(index) ? 1 : 0.2"
+                        :fill-opacity="topicPreFiltered(index) ? 1 : 0.2"
                         @click="selectedTopic=index"/>
 
             </svg>
@@ -282,6 +338,26 @@
     <i class="bi bi-layout-text-sidebar-reverse" role="button"
        style="position: fixed; top:0.5rem; right: 1rem; font-size: 2rem; z-index: 5000;"
        @click="showSettings = !(showSettings)"></i>
+
+
+    <!--div class="offcanvas show offcanvas-end" tabindex="-1" id="offcanvas-landscape"
+         style="width: 50vw; visibility: visible;" v-if="showLandscape">
+        <div class="offcanvas-header">
+            <h5>Topic Landscape</h5>
+        </div>
+        <div class="offcanvas-body">
+            <div style="position: relative;">
+                <img v-for="(topic) in topics.slice(0,100)" :key="topic.id" class="layer-img"
+                     :class="{'layer-img-dim': highlightedLayers.length > 0 }"
+                     :src="`layers/topic_${topic.id}.png`"/>
+                <img v-for="(topic) in highlightedLayers" class="layer-img layer-img-highlight"
+                     :src="`layers/topic_${topic}.png`"/>
+            </div>
+        </div>
+    </div>
+    <i class="bi bi-layout-text-sidebar" role="button"
+       style="position: fixed; top:3rem; right: 1rem; font-size: 2rem; z-index: 5000;"
+       @click="showLandscape = !(showLandscape)"></i-->
 </main>
 <script type="module">
     // import {reactive} from 'vue'
@@ -323,12 +399,15 @@
                 }),
                 'index': index,
                 showSettings: false,
+                showLandscape: false,
                 prePostSet: 'count',
                 minClusterSizeSlide: 0,
                 maxClusterSizeSlide: 1000,
                 diagonalOffset: 0,
                 upperTriangle: true,
                 lowerTriangle: true,
+                spotTopicBehaviour: 0,
+                spotTopicThreshold: 80,
                 selectedPage: 0,
                 selectedTopic: 3,
                 search: '',
@@ -388,9 +467,25 @@
                     Math.abs(vector[0] - vector[1]) / (vector[0] + vector[1]) >= this.diagonalOffset &&
                     ((!this.upperTriangle && vector[0] >= vector[1]) || this.upperTriangle) &&
                     ((!this.lowerTriangle && vector[0] <= vector[1]) || this.lowerTriangle);
+            },
+            topicIsSpotTopic(topicIndex) {
+                // spotTopicBehaviour 0 = include, -1 = exclude, 1 = isolate
+                if (this.spotTopicBehaviour > 0) {
+                    return !(this.spotTopics[topicIndex]);
+                } else if (this.spotTopicBehaviour < 0) {
+                    return this.spotTopics[topicIndex];
+                } else {
+                    return false;
+                }
+            },
+            topicPreFiltered(topicIndex) {
+                return this.topicInRange(topicIndex) && !this.topicIsSpotTopic(topicIndex);
             }
         },
         computed: {
+            highlightedLayers: function () {
+                return [3, 4];
+            },
             minClusterSize: function () {
                 let scale = Math.log(this.prePost[this.prePostSet].max) / 1000
                 return Math.expm1(this.minClusterSizeSlide * scale);
@@ -398,6 +493,13 @@
             maxClusterSize: function () {
                 let scale = Math.log(this.prePost[this.prePostSet].max) / 1000
                 return Math.expm1(this.maxClusterSizeSlide * scale);
+            },
+            spotTopics: function () {
+                return this.topics.map((topic) => {
+                    let dist = topic[this.selectedDistribution];
+                    let sum = dist.reduce((s, a) => s + a, 0);
+                    return (Math.max(...dist) / sum) > (this.spotTopicThreshold / 100);
+                });
             },
             selectedDistributionNormed: function () {
                 if (this.selectedTopic === null) return [];
@@ -432,10 +534,11 @@
                 }
             },
             filteredTopics: function () {
-                let sizeFilteredTopics = this.topics.filter((topic, topicIndex) => this.topicInRange(topicIndex));
+                let preFilteredTopics = this.topics
+                    .filter((topic) => this.topicPreFiltered(topic.id));
 
                 if (this.searchResult === null) {
-                    return sizeFilteredTopics.map((topic) => {
+                    return preFilteredTopics.map((topic) => {
                         topic.n_tweets = topic.n_tweets_orig;
                         return topic;
                     });
@@ -445,7 +548,7 @@
                         return acc;
                     }, {});
 
-                    return sizeFilteredTopics
+                    return preFilteredTopics
                         .filter((topic, index) => index in topicCounts)
                         .map((topic) => {
                             topic.n_tweets = topicCounts[topic.id];
