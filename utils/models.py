@@ -6,7 +6,7 @@ from transformers import (AutoModel,
                           AutoModelForSequenceClassification,
                           AutoTokenizer, TextClassificationPipeline)
 import torch
-from typing import Literal, Union, Optional
+from typing import Literal
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
@@ -41,11 +41,11 @@ class Classifier:
 
     def load(self, target_dir: Path, device: int) -> TextClassificationPipeline:
         target = str(target_dir)
+        tokenizer = AutoTokenizer.from_pretrained(target, use_fast=True)
         pretrained_model = AutoModelForSequenceClassification.from_pretrained(target,
                                                                               num_labels=self.num_labels,
                                                                               label2id=self.label2id,
                                                                               id2label=self.id2label)
-        tokenizer = AutoTokenizer.from_pretrained(target, use_fast=True)
         return TextClassificationPipeline(model=pretrained_model, tokenizer=tokenizer, device=device)
 
 
@@ -90,6 +90,10 @@ class Embedder:
     hf_name: str
     kind: Literal['transformer', 'auto']
 
+
+ClassifierLiteral = Literal['cardiff-sentiment', 'cardiff-emotion', 'cardiff-offensive', 'cardiff-stance-climate',
+                            'geomotions-orig', 'geomotions-ekman', 'nlptown-sentiment', 'bertweet-sentiment',
+                            'bertweet-emotions', 'bert-sst2', 'cards']
 
 # to find more models, browse this page:
 # https://huggingface.co/models?pipeline_tag=text-classification&sort=downloads
@@ -163,12 +167,44 @@ CLASSIFIERS = {
     'bert-sst2': Classifier(hf_name='distilbert-base-uncased-finetuned-sst-2-english',
                             labels=['negative', 'positive']),
     'cards': CARDSClassifier(hf_name='CARDS',
-                             labels=[])
+                             labels=['0_0',  # 0 - no claim
+                                     # global warming is not happening
+                                     '1_1',  # 1 - ice isn't melting
+                                     '1_2',  # 2 - heading into ice age
+                                     '1_3',  # 3 - weather is cold
+                                     '1_4',  # 4 - hiatus is warming
+                                     '1_5',  # 5 - oceans are cooling
+                                     '1_6',  # 6 - sea level rise is exaggerated
+                                     '1_7',  # 7 - extremes aren't increasing
+                                     # '1_8',  # 8 - changed the name
+                                     # human greenhouse gases are not causing global warming
+                                     '2_1',  # 9 - it's natural cycles
+                                     # '2_2',  # 10 - non-ghg forcings
+                                     # '2_3',  # 11 - no evidence of greenhouse effect
+                                     # '2_4',  # 12 - co2 not rising
+                                     # '2_5',  # 13 - emissions not raising co2 levels
+                                     # climate impacts are not bad
+                                     '3_1',  # 14 - sensitivity is low
+                                     '3_2',  # 15 - no species impact
+                                     '3_3',  # 16 - not a pollutant
+                                     # '3_4',  # 17 - only a few degrees
+                                     # '3_5',  # 18 - no link to conflict
+                                     # '3_6',  # 19 - no health impacts
+                                     # climate solutions won't work
+                                     '4_1',  # 20 - policies are harmful
+                                     '4_2',  # 21 - policies are ineffective
+                                     # '4_3',  # 22 - too hard
+                                     '4_4',  # 23 - clean energy won't work
+                                     '4_5',  # 24 - we need energy
+                                     # climate movement / science is unreliable
+                                     '5_1',  # 25 - science is unreliable
+                                     '5_2',  # 26 - movement is unreliable
+                                     # '5_3'  # 27 - climate is conspiracy
+                                     ])
 }
 EMBEDDERS = {
     'bertweet': Embedder(hf_name='vinai/bertweet-large', kind='transformer'),
-    'minilm': Embedder(hf_name='paraphrase-multilingual-MiniLM-L12-v2', kind='transformer'),
-
+    'minilm': Embedder(hf_name='paraphrase-multilingual-MiniLM-L12-v2', kind='transformer')
 }
 
 

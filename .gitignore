@@ -10,3 +10,4 @@ data/
 .python-version
 *.code-workspace
 *.json
+/viewer/layers/

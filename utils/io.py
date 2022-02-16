@@ -48,3 +48,14 @@ def produce_batches(file_path: str, batch_size: int, init_skip: int = 0, limit: 
             tqdm.write(f'Current file pos: {line_num}; '
                        f'Tweets from {tweets[0]["created_at"]} to {tweets[-1]["created_at"]}')
             yield tweets
+
+
+def batched_lines(file_path: str, batch_size: int):
+    with open(file_path, 'r') as f_in:
+        lines_batch = []
+        for line in f_in:
+            lines_batch.append(line)
+            if len(lines_batch) >= batch_size:
+                yield lines_batch
+                lines_batch = []
+        yield lines_batch

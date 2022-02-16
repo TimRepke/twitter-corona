@@ -1,81 +1,138 @@
 import json
+import os
+from typing import Optional, Union, Literal
+import numpy as np
+from utils.models import ModelCache, ClassifierLiteral, SentenceTransformerBackend, AutoModelBackend
+from utils.cluster import ClusterJobBaseArguments
+from utils.io import exit_if_exists, batched_lines
+from copy import deepcopy
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+import gc
 
-from torch import cuda
-from tqdm import tqdm
-from datasets import Dataset
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from transformers.pipelines import TextClassificationPipeline
-from transformers.pipelines.base import KeyDataset
-from utils.io import exit_if_exists, produce_batches
-
-from pipeline.models.classification import MODELS
-
-# https://github.com/dhs-gov/sentop/
+PathLike = Union[str, bytes, os.PathLike]
 
 
-def assess_tweets(texts: List[str], model, labels):
-    pretrained_model = AutoModelForSequenceClassification.from_pretrained(
-        model, 
-        num_labels=len(labels),
-        label2id={k: i for i, k in enumerate(labels)},
-        id2label={i: k for i, k in enumerate(labels)})
-    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
-    device = 0 if cuda.is_available() else -1
-    classifier = TextClassificationPipeline(
-        model=pretrained_model, tokenizer=tokenizer, device=device)
-    dataset = Dataset.from_dict({'texts': texts})
-    output = [o for o in tqdm(classifier(KeyDataset(dataset, "texts")))]
-    return [(o['label'], o['score']) for o in output]
+class TweetClassifierArgs(ClusterJobBaseArguments):
+    models: list[ClassifierLiteral] = ['cardiff-sentiment', 'cardiff-emotion', 'cardiff-offensive',
+                                       'cardiff-stance-climate', 'geomotions-orig', 'geomotions-ekman',
+                                       'bertweet-sentiment', 'bertweet-emotions', 'cards']
+    model_cache: str = 'data/models/'  # Location for cached models.
+    file_in: Optional[str] = None  # The file to read data from (relative to source root)
+    file_out: Optional[str] = None  # The file to write embeddings to (relative to source root)
+
+    batch_size: Optional[int] = 10000  # size of the batch of tweets processed at once
+    limit: Optional[int] = 10000  # Size of the dataset
+    dataset: Optional[str] = 'climate2'  # Name of the dataset
+    excl_hashtags: bool = False  # Set this flag to exclude hashtags in the embedding
+
+    cluster_jobname: str = 'twitter-classify'
+    cluster_workdir: str = 'twitter'
+
+    cluster_gpu: bool = True
 
 
-def classify_tweets(
-    dataset: str,
-    limit: int,
-    skip_first_n_lines: int,
-    batch_size: int,
-    use_model_cache: bool = False,
-    source_f: Optional[str] = None,
-    target_f: Optional[str] = None,
-    models: Optional[Dict[str, Any]] = None
-):
+def clean_clean_text(txt):
+    return txt.replace('MENTION', '').replace('URL', '').replace('HASHTAG', '')
 
-    if source_f is None:
-        source_f = f"data/{dataset}/tweets_filtered_{limit}.jsonl"
-    if target_f is None:
-        target_f = f"data/{dataset}/tweets_sentiment_{limit}.jsonl"
-    if models is None:
-        models = MODELS
 
-    exit_if_exists(target_f)
+def line2txt_hashtags(tweet):
+    return clean_clean_text(tweet['clean_text']) + (' '.join(tweet['meta']['hashtags']))
 
-    with open(target_f, "w") as f_out:
-        for tweets_batch in tqdm(produce_batches(source_f, batch_size, skip_first_n_lines)):
-            texts = [t["clean_text"] for t in tweets_batch]
+
+def line2txt_clean(tweet):
+    return clean_clean_text(tweet['clean_text'])
+
+
+def classify_tweets(source_f: PathLike,
+                    target_f: PathLike,
+                    models: list[str],
+                    model_cache: ModelCache,
+                    batch_size: int,
+                    include_hashtags: bool = True):
+    with open(target_f, 'w') as f_out:
+        for batch_i, lines_batch in enumerate(batched_lines(source_f, batch_size=batch_size)):
+            print(f'== Processing Batch {batch_i} containing {len(lines_batch)} tweets ==')
+            tweets_batch = [json.loads(line) for line in lines_batch]
+
+            if include_hashtags:
+                texts = [line2txt_hashtags(line) for line in lines_batch]
+            else:
+                texts = [line2txt_clean(line) for line in lines_batch]
 
             results = {}
-            for model_name, info in models.items():
+            for model_name, info in models:
                 start = time.time()
-                tqdm.write(f"[{datetime.now()}] Applying model {model_name}...")
-                key_to_use = "path" if use_model_cache else "model"
-                results[model_name] = assess_tweets(
-                    texts, model=info[key_to_use], labels=info["labels"]
-                )
+                print(f'[{datetime.now()}] Applying model {model_name}...')
+
+                model = model_cache.get_classifier(model_name)
+                results[model_name] = model(texts)
+
                 secs = time.time() - start
-                tqdm.write(f"  - Done after {secs // 60:.0f}m {secs % 60:.0f}s")
+                print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
             for i, tweet in enumerate(tweets_batch):
-                tweet["sentiments"] = {m: results[m][i] for m in MODELS.keys()}
-                f_out.write(json.dumps(tweet) + "\n")
+                tweet['classes'] = {model_name: results[model_name][i] for model_name in models}
+                f_out.write(json.dumps(tweet) + '\n')
+
+            print('  - Memory cleanup')
+            del model
+            del tweets_batch
+            del texts
+            gc.collect()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    args = TweetClassifierArgs(underscores_to_dashes=True).parse_args()
+    if args.args_file is not None:
+        print(f'Dropping keyword arguments and loading from file: {args.args_file}')
+        args = TweetClassifierArgs().load(args.args_file)
 
-    classify_tweets(
-        dataset="climate",  # 'geoengineering'
-        limit=10000,
-        skip_first_n_lines=0,
-        batch_size=1500,
-    )
+    _include_hashtags = not args.excl_hashtags
+
+    if args.file_in is None:
+        file_in = f'data/{args.dataset}/tweets_filtered_{args.limit}.jsonl'
+    else:
+        file_in = args.file_in
+    if args.file_out is None:
+        file_out = f'data/{args.dataset}/tweets_classified_{args.limit}_{_include_hashtags}.npy'
+    else:
+        file_out = args.file_out
+
+    if args.mode == 'cluster':
+        from utils.cluster import Config as SlurmConfig
+        from utils.cluster.job import ClusterJob
+        from utils.cluster.files import FileHandler
+
+        s_config = SlurmConfig.from_args(args,
+                                         env_vars_run={
+                                             'OPENBLAS_NUM_THREADS': 1,
+                                             'TRANSFORMERS_OFFLINE': 1
+                                         })
+        file_handler = FileHandler(config=s_config,
+                                   local_basepath=os.getcwd(),
+                                   requirements_txt='requirements_cluster.txt',
+                                   include_dirs=['pipeline', 'utils'],
+                                   model_cache=args.model_cache,
+                                   required_models=args.models,
+                                   data_files=[file_in])
+        s_job = ClusterJob(config=s_config, file_handler=file_handler)
+        cluster_args = deepcopy(args)
+        cluster_args.file_in = os.path.join(s_config.datadir_path, file_in)
+        cluster_args.file_out = os.path.join(s_config.datadir_path, file_out)
+        cluster_args.model_cache = s_config.modeldir_path
+        s_job.submit_job(main_script='pipeline/03_02_classify_data.py', params=cluster_args)
+    else:
+        print('Initialising model cache')
+        _model_cache = ModelCache(args.model_cache)
+
+        print(f'Testing if output file exists already at {file_out}')
+        exit_if_exists(file_out)
+
+        print('Running classifications...')
+        classify_tweets(source_f=file_in,
+                        target_f=file_out,
+                        models=args.models,
+                        model_cache=_model_cache,
+                        include_hashtags=_include_hashtags,
+                        batch_size=args.batch_size)
