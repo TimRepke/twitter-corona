@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 import xlsxwriter
 
 DATASET = 'climate2'
-LIMIT = 100000
-SOURCE_DIR = f'data/{DATASET}/topics'
+LIMIT = 7000000
+SOURCE_DIR = f'data/{DATASET}/topics_big2'
 TARGET_FILE = f'{SOURCE_DIR}/topic_stats_{LIMIT}.xlsx'
 
 DATE_FORMAT: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'monthly'
@@ -23,7 +23,7 @@ for boost in [[], ['retweets'], ['replies'], ['likes'], ['retweets', 'likes']]: 
         row = 0
         col = 0
 
-        with open(f'{SOURCE_DIR}/temporal/tt_{LIMIT}_{DATE_FORMAT}_abs_{"_".join(boost)}.json') as f:
+        with open(f'{SOURCE_DIR}/temporal/temporal_{LIMIT}_{DATE_FORMAT}_{"_".join(boost or ["raw"])}_abs.json') as f:
             data = json.load(f)
             vectors = np.array(data['z'])[1:]
             topics = data['y']
