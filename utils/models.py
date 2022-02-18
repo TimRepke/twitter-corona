@@ -6,7 +6,8 @@ from transformers import (AutoModel,
                           AutoModelForSequenceClassification,
                           AutoTokenizer, TextClassificationPipeline)
 import torch
-from typing import Literal
+from scipy.special import softmax
+from typing import Literal, Optional, Union
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ class Classifier:
     def __init__(self, hf_name: str, labels: list[str]):
         self.hf_name = hf_name
         self.labels = labels
+        self._classifier: Optional[TextClassificationPipeline] = None
 
     @property
     def num_labels(self) -> int:
@@ -39,14 +41,21 @@ class Classifier:
         tokenizer = AutoTokenizer.from_pretrained(self.hf_name)
         tokenizer.save_pretrained(target)
 
-    def load(self, target_dir: Path, device: int) -> TextClassificationPipeline:
-        target = str(target_dir)
-        tokenizer = AutoTokenizer.from_pretrained(target, use_fast=True)
-        pretrained_model = AutoModelForSequenceClassification.from_pretrained(target,
-                                                                              num_labels=self.num_labels,
-                                                                              label2id=self.label2id,
-                                                                              id2label=self.id2label)
-        return TextClassificationPipeline(model=pretrained_model, tokenizer=tokenizer, device=device)
+    def load(self, target_dir: Path, device: int):
+        if self._classifier is None:
+            target = str(target_dir)
+            tokenizer = AutoTokenizer.from_pretrained(target, use_fast=True)
+            pretrained_model = AutoModelForSequenceClassification.from_pretrained(target,
+                                                                                  num_labels=self.num_labels,
+                                                                                  label2id=self.label2id,
+                                                                                  id2label=self.id2label)
+            self._classifier = TextClassificationPipeline(model=pretrained_model, tokenizer=tokenizer, device=device)
+
+    def classify(self, texts: list[str], return_all_scores: bool = False):
+        scores = self._classifier(texts, return_all_scores=return_all_scores)
+        if return_all_scores:
+            return [{score['label']: score['score'] for score in scores_i} for scores_i in scores]
+        return [{score['label']: score['score']} for score in scores]
 
 
 class CARDSClassifier(Classifier):
@@ -75,14 +84,23 @@ class CARDSClassifier(Classifier):
         os.remove(zip_file)
 
     def load(self, target_dir: Path, device: int):
-        from simpletransformers.classification import ClassificationModel
+        if self._classifier is None:
+            from simpletransformers.classification import ClassificationModel
 
-        model = ClassificationModel(
-            model_type='roberta',
-            model_name=f'{target_dir}/models/CARDS_RoBERTa_Classifier',
-            use_cuda=device == 0
-        )
-        return model
+            model = ClassificationModel(
+                model_type='roberta',
+                model_name=f'{target_dir}/models/CARDS_RoBERTa_Classifier',
+                use_cuda=device == 0
+            )
+            self._classifier = model
+
+    def classify(self, texts: list[str], return_all_scores: bool = False):
+        labels, scores = self._classifier.predict(texts)
+        scores = [softmax(score[0]) for score in scores]
+        # scores = [score[0] for score in scores]
+        if return_all_scores:
+            return [{label: scores_i[label_i] for label_i, label in self.id2label.items()} for scores_i in scores]
+        return [{self.id2label[label_i]: scores_i[label_i]} for label_i, scores_i in zip(labels, scores)]
 
 
 @dataclass
@@ -343,23 +361,23 @@ class ModelCache:
         return use_cuda
 
     @staticmethod
-    def _get_classifier(model_name: str) -> Classifier:
+    def _get_classifier_instance(model_name: str) -> Classifier:
         if model_name not in CLASSIFIERS:
             raise KeyError(f'Classifier {model_name} unknown.')
         return CLASSIFIERS[model_name]
 
-    def get_classifier(self, model_name: str):
+    def get_classifier(self, model_name: str) -> Classifier:
         # ensure the model is downloaded
         self.cache_classifier(model_name)
 
-        classifier = self.get_classifier(model_name)
+        classifier = self._get_classifier_instance(model_name)
         model_cache_path = self.get_model_path(model_name)
         use_cuda = self._set_cuda_settings()
         device = 0 if use_cuda else -1
         classifier.load(model_cache_path, device=device)
         return classifier
 
-    def get_embedder(self, model_name: str):
+    def get_embedder(self, model_name: str) -> Union[SentenceTransformerBackend, AutoModelBackend]:
         self.cache_embedding_model(model_name)
         model_cache_path = str(self.get_model_path(model_name))
         if EMBEDDERS[model_name].kind == 'transformer':

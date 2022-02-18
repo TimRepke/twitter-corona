@@ -14,9 +14,9 @@ PathLike = Union[str, bytes, os.PathLike]
 
 
 class TweetClassifierArgs(ClusterJobBaseArguments):
-    models: list[ClassifierLiteral] = ['cardiff-sentiment', 'cardiff-emotion', 'cardiff-offensive',
+    models: list[ClassifierLiteral] = ['cards', 'cardiff-sentiment', 'cardiff-emotion', 'cardiff-offensive',
                                        'cardiff-stance-climate', 'geomotions-orig', 'geomotions-ekman',
-                                       'bertweet-sentiment', 'bertweet-emotions', 'cards']
+                                       'bertweet-sentiment', 'bertweet-emotions']
     model_cache: str = 'data/models/'  # Location for cached models.
     file_in: Optional[str] = None  # The file to read data from (relative to source root)
     file_out: Optional[str] = None  # The file to write embeddings to (relative to source root)
@@ -56,17 +56,17 @@ def classify_tweets(source_f: PathLike,
             tweets_batch = [json.loads(line) for line in lines_batch]
 
             if include_hashtags:
-                texts = [line2txt_hashtags(line) for line in lines_batch]
+                texts = [line2txt_hashtags(tweet) for tweet in tweets_batch]
             else:
-                texts = [line2txt_clean(line) for line in lines_batch]
+                texts = [line2txt_clean(tweet) for tweet in tweets_batch]
 
             results = {}
-            for model_name, info in models:
+            for model_name in models:
                 start = time.time()
                 print(f'[{datetime.now()}] Applying model {model_name}...')
 
                 model = model_cache.get_classifier(model_name)
-                results[model_name] = model(texts)
+                results[model_name] = model.classify(texts)
 
                 secs = time.time() - start
                 print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
@@ -74,6 +74,7 @@ def classify_tweets(source_f: PathLike,
             for i, tweet in enumerate(tweets_batch):
                 tweet['classes'] = {model_name: results[model_name][i] for model_name in models}
                 f_out.write(json.dumps(tweet) + '\n')
+                f_out.flush()
 
             print('  - Memory cleanup')
             del model
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     else:
         file_in = args.file_in
     if args.file_out is None:
-        file_out = f'data/{args.dataset}/tweets_classified_{args.limit}_{_include_hashtags}.npy'
+        file_out = f'data/{args.dataset}/tweets_classified_{args.limit}_{_include_hashtags}.jsonl'
     else:
         file_out = args.file_out
 
@@ -127,7 +128,7 @@ if __name__ == '__main__':
         _model_cache = ModelCache(args.model_cache)
 
         print(f'Testing if output file exists already at {file_out}')
-        exit_if_exists(file_out)
+        #exit_if_exists(file_out)
 
         print('Running classifications...')
         classify_tweets(source_f=file_in,
