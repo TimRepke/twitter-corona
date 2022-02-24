@@ -8,7 +8,7 @@ file_labels = 'data/climate2/topics_big2/labels_7000000_tsne.npy'
 file_embeddings = 'data/climate2/topics_big2/tweets_embeddings_7000000_True_minilm.npy'
 file_layout = 'data/climate2/topics_big2/layout_7000000_tsne.npy'
 
-space: Literal['2d', 'hd'] = 'hd'
+space: Literal['2d', 'hd'] = '2d'
 k = 10
 
 labels = np.load(file_labels)

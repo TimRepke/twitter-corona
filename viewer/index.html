@@ -134,7 +134,12 @@
     <div class="d-flex flex-column flex-shrink-1">
         <div class="d-flex flex-row p-3" v-if="selectedTopic !== null && searchResult === null">
             <div class="card shadow-sm p-3 bg-body rounded">
-                <div class="row">
+                <span class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-secondary"
+                      role="button" @click="showTopicDetails=!showTopicDetails">
+                    <i class="bi fs-5"
+                       :class="{'bi-arrows-collapse': showTopicDetails, 'bi-arrows-expand': !showTopicDetails}"></i>
+                </span>
+                <div class="row" v-show="showTopicDetails">
                     <div class="col-6">
                         <p class="fw-bold">TF-IDF Tokens</p>
                         <p>{{topics[selectedTopic].tfidf}}</p>
@@ -162,8 +167,29 @@
                             </span>
                     </div>
                 </div>
+                <div class="row" v-show="showTopicDetails">
+                    <div class="col">Layout:
+                        <button type="button" class="btn btn-outline-secondary m-2"
+                                v-for="(neighbour) in neighbours[selectedTopic].ld"
+                                @click="selectTopic(neighbour[0])">
+                            T {{neighbour[0]}}
+                            <span class="badge bg-light  text-dark">{{neighbour[1].toFixed(3)}}</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="row" v-show="showTopicDetails">
+                    <div class="col">Embedding:
+                        <button type="button" class="btn btn-outline-secondary m-2"
+                                v-for="(neighbour) in neighbours[selectedTopic].hd"
+                                @click="selectTopic(neighbour[0])">
+                            T {{neighbour[0]}}
+                            <span class="badge bg-light  text-dark">{{neighbour[1].toFixed(3)}}</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
+
         <nav class="d-flex flex-row justify-content-center" v-if="pages.length>1">
             <ul class="pagination">
                 <li class="page-item" :class="{disabled: selectedPage===0}">
@@ -391,6 +417,7 @@
             return {
                 tweets: dump.tweets,
                 groups: dump.groups,
+                neighbours: dump.neighbours,
                 prePost: prePost,
                 topics: dump.topics.map((topic, index) => {
                     topic.id = index;
@@ -400,6 +427,7 @@
                 'index': index,
                 showSettings: false,
                 showLandscape: false,
+                showTopicDetails: true,
                 prePostSet: 'count',
                 minClusterSizeSlide: 0,
                 maxClusterSizeSlide: 1000,
