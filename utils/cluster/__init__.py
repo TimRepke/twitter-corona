@@ -176,6 +176,8 @@ class Config:
             ret += f'#SBATCH --gres=gpu:{self.gpu_type}:{self.n_gpus}\n'
         ret += f'#SBATCH --nodes=1\n'
         ret += f'#SBATCH --cpus-per-task={self.n_cpus}\n'
+        if self.n_cpus > 16:
+            ret += f'#SBATCH --constraint=broadwell\n'
         ret += f'#SBATCH --mem={self.memory}\n'
         ret += f'#SBATCH --output={self.std_out}\n'
         ret += f'#SBATCH --error={self.std_err}\n'

@@ -21,7 +21,7 @@ N_CLUSTERS = 4
 
 for boost in [[], ['retweets', 'likes']]:  # ['retweets'], ['replies'], ['likes'],
     for norm in ['col', 'row', 'abs']:  # 'both',
-        with open(f'{SOURCE_DIR}/temporal__{LIMIT}_{DATE_FORMAT}_{"_".join(boost or ["raw"])}_abs.json') as f:
+        with open(f'{SOURCE_DIR}/temporal_{LIMIT}_{DATE_FORMAT}_{"_".join(boost or ["raw"])}_abs.json') as f:
             data = json.load(f)
             vectors = np.array(data['z'])[1:]
             topics = data['y']

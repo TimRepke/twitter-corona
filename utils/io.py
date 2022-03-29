@@ -21,6 +21,10 @@ def exit_if_exists(file_path: str):
         exit(1)
 
 
+def ensure_folder(file_path: str):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+
 def produce_batches(file_path: str, batch_size: int, init_skip: int = 0, limit: Optional[int] = None):
     num_lines = count_tweets(file_path, echo=True)
 
@@ -59,3 +63,4 @@ def batched_lines(file_path: str, batch_size: int):
                 yield lines_batch
                 lines_batch = []
         yield lines_batch
+

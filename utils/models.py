@@ -190,7 +190,7 @@ CLASSIFIERS = {
                                      '1_1',  # 1 - ice isn't melting
                                      '1_2',  # 2 - heading into ice age
                                      '1_3',  # 3 - weather is cold
-                                     '1_4',  # 4 - hiatus is warming
+                                     '1_4',  # 4 - hiatus in warming
                                      '1_5',  # 5 - oceans are cooling
                                      '1_6',  # 6 - sea level rise is exaggerated
                                      '1_7',  # 7 - extremes aren't increasing
