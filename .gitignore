@@ -11,3 +11,4 @@ data/
 *.code-workspace
 *.json
 /viewer/layers/
+/scripts/supertopics/aggregated_topics_quarterly_bars_concentration.ipynb

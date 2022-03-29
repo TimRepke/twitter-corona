@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import json
 from prettytable import PrettyTable
 import re
+import seaborn as sns
 
 DATASET = 'climate2'
 LIMIT = 7000000
@@ -18,7 +19,7 @@ BOOST = ['raw',  # 0
          'replies_likes',  # 5
          'retweets_replies',  # 6
          'retweets_likes_replies'  # 7
-         ][7]
+         ][0]
 SMOOTHING = 30
 FILE_SUPERTOPICS = f'data/{DATASET}/topics_big2/supertopics.csv'
 FILE_TEMP_DIST = f'data/{DATASET}/topics_big2/temporal/{DATE_FORMAT}/temporal_{LIMIT}_{DATE_FORMAT}_{BOOST}_{NORM}.json'
@@ -54,7 +55,7 @@ xticks = []
 xticklabels = []
 for i, x in enumerate(groups):
     s = re.search('[0-9]{4}-([0-9]{2})-([0-9]{2})', x)
-    if int(s.group(1)) % 3 == 0 and int(s.group(2)) == 1:
+    if (int(s.group(1) - 1) % 3 == 0 and int(s.group(2)) == 1):
         xticks.append(i)
         xticklabels.append(x)
 
@@ -235,7 +236,7 @@ for i, st in enumerate(sts_plot, start=1):
     threshold = y.mean()
     ax.axhline(threshold, color='green', lw=2, alpha=0.5)
     ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
-    ax.fill_between(x,  y, threshold, where=y < threshold, color='red', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
     ax.set_ylim(0, 0.5)
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
@@ -249,15 +250,15 @@ for i, st in enumerate(sts_plot, start=1):
     ax = plt.subplot(len(sts_plot), 1, i)
     ax.set_title(st.name)
     x = np.arange(0, len(groups))
-    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1,)
+    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
     y_pre = y[:bound].mean()
     ax.plot(x, y, color='black')
     threshold = y.mean()
     ax.axhline(threshold, color='green', lw=2, alpha=0.5)
-    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound/len(groups))
-    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound/len(groups))
+    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound / len(groups))
+    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound / len(groups))
     ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
-    ax.fill_between(x,  y, threshold, where=y < threshold, color='red', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
@@ -270,15 +271,15 @@ for i, st in enumerate(sts_plot, start=1):
     ax = plt.subplot(len(sts_plot), 1, i)
     ax.set_title(st.name)
     x = np.arange(0, len(groups))
-    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1,)
+    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
     y_pre = y[:bound].mean()
     ax.plot(x, y, color='black')
     threshold = y.mean()
     ax.axhline(threshold, color='green', lw=2, alpha=0.5)
-    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound/len(groups))
-    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound/len(groups))
+    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound / len(groups))
+    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound / len(groups))
     ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
-    ax.fill_between(x,  y, threshold, where=y < threshold, color='red', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
     ax.set_ylim(0, 8.5)
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
@@ -292,17 +293,78 @@ for i, st in enumerate(sts_plot, start=1):
     ax = plt.subplot(len(sts_plot), 1, i)
     ax.set_title(st.name)
     x = np.arange(0, len(groups))
-    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1,)
+    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
     y_pre = y[:bound].mean()
     ax.plot(x, y, color='black')
     threshold = y.mean()
     ax.axhline(threshold, color='green', lw=2, alpha=0.5)
-    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound/len(groups))
-    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound/len(groups))
+    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound / len(groups))
+    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound / len(groups))
     ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
-    ax.fill_between(x,  y, threshold, where=y < threshold, color='red', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
     ax.set_yscale('symlog')
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
+fig.tight_layout()
+plt.show()
+
+bound = groups.index('2020-02-01')
+fig = plt.figure(figsize=(10, 20), dpi=150)
+fig.suptitle('Mean normalised (each plot with own yscale)', y=1)
+for i, st in enumerate(sts_plot, start=1):
+    ax = plt.subplot(len(sts_plot), 1, i)
+    ax.set_title(st.name)
+    x = np.arange(0, len(groups))
+    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
+    y_pre = y[:bound].mean()
+    ax.plot(x, y, color='black')
+    threshold = y.mean()
+    ax.axhline(threshold, color='green', lw=2, alpha=0.5)
+    ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound / len(groups))
+    ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound / len(groups))
+    ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
+ax.set_xticks(xticks)
+ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
+fig.tight_layout()
+plt.show()
+
+bound = groups.index('2020-02-01')
+fig = plt.figure(figsize=(10, 20), dpi=150)
+for i, st in enumerate(sts_plot, start=1):
+    ax = plt.subplot(len(sts_plot), 1, i)
+    ax.set_title(st.name)
+    ax.axvline(bound, color='black', lw=2, alpha=0.5)
+    # plot the data
+    x = np.arange(0, len(groups))
+    y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
+    ax.plot(x, y, color='black')
+    ax.set_ylabel('Proportion from mean')
+    # plot the mean line (=1)
+    threshold = y.mean()
+    ax.axhline(threshold, color='black', lw=2, alpha=0.5)
+    # fill the areas under the curve
+    ax.fill_between(x, threshold, y, where=y > threshold, color='green', alpha=0.5)
+    ax.fill_between(x, y, threshold, where=y < threshold, color='red', alpha=0.5)
+    # show the mean of tweets before and after the pandemic
+    # ax.axhline(y[:bound].mean(), color='black', ls=':', lw=2, alpha=0.5, xmax=bound / len(groups))
+    # ax.axhline(y[bound:].mean(), color='black', ls=':', lw=2, alpha=0.5, xmin=bound / len(groups))
+    ax.axvline(bound)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
+
+    ax2 = ax.twinx()
+    y = supertopic_counts[st] / supertopic_counts.sum(axis=0)
+    ax2.scatter(x, y, c='orange', s=0.4, marker=',')
+    # plot regression line for period before and after pandemic
+    sns.regplot(x=x[:bound], y=y[:bound], ax=ax2, scatter=False)
+    sns.regplot(x=x[bound:], y=y[bound:], ax=ax2, scatter=False)
+    # set the opacity of confidence interval
+    plt.setp(ax2.collections[1], alpha=0.3)
+    plt.setp(ax2.collections[2], alpha=0.3)
+    # exclude extreme values by setting ylim
+    ax2.set_ylim(np.percentile(y, q=1), np.percentile(y, q=99))
+    ax2.set_ylabel('Share of tweets')
+
 fig.tight_layout()
 plt.show()

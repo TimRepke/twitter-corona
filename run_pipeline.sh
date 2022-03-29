@@ -25,3 +25,15 @@ python pipeline/04_03_topicmodel.py --mode=cluster --cluster-mail=timrepke@pik-p
 python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
                                        --python-unbuffered --cluster-time=10:00:00 --cluster-ram=40G --limit=7000000 \
                                        --batch-size=10000 --excl-hashtags
+
+python pipeline/04_04_01_embed_remaining_tweets.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                    --cluster-ram=45G --cluster-time=4:00:00 --python-unbuffered \
+                                    --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl
+                                    --file-out=extended_tweets.npy
+
+python pipeline/04_04_02_join_remaining_tweets.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                    --cluster-ram=70G --cluster-time=4:00:00 --cluster-n-cpus=10 --python-unbuffered \
+                                    --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl \
+                                    --file-emb-sample=tweets_embeddings_7000000_True_minilm.npy \
+                                    --file-emb-rest=extended_tweets.npy --file-labels=topics/labels_7000000_tsne.npy \
+                                    --n-neighbours=20 --target-folder=topics/full/

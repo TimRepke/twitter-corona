@@ -116,6 +116,20 @@ def read_tweets(filename, limit):
         return tweets_d
 
 
+def clean_clean_text(txt):
+    return txt.replace('MENTION', '').replace('URL', '').replace('HASHTAG', '')
+
+
+def line2txt_hashtags(line):
+    tweet = json.loads(line)
+    return clean_clean_text(tweet['clean_text']) + (' '.join(tweet['meta']['hashtags']))
+
+
+def line2txt_clean(line):
+    tweet = json.loads(line)
+    return clean_clean_text(tweet['clean_text'])
+
+
 @dataclass
 class FilterResult:
     accept: bool = False
@@ -181,7 +195,7 @@ class TweetFilter:
         result.has_climate = 'climate' in tweet['clean_text'].lower()
 
         if result.accept_lang and result.has_text and result.has_min_tokens and \
-                result.has_max_hashtags and result.past_from_date and result.pre_to_date and\
+                result.has_max_hashtags and result.past_from_date and result.pre_to_date and \
                 (not self.has_climate or result.has_climate):
             if self.allow_duplicates:
                 result.accept = True
