@@ -22,7 +22,9 @@ BOOST = ['raw',  # 0
          ][0]
 SMOOTHING = 30
 FILE_SUPERTOPICS = f'data/{DATASET}/topics_big2/supertopics.csv'
-FILE_TEMP_DIST = f'data/{DATASET}/topics_big2/temporal/{DATE_FORMAT}/temporal_{LIMIT}_{DATE_FORMAT}_{BOOST}_{NORM}.json'
+FILE_TEMP_DIST_BASE = [f'data/{DATASET}/topics_big2/temporal_sampled/{DATE_FORMAT}/temporal_{LIMIT}',
+                       f'data/{DATASET}/topics_big2/temporal_full/{DATE_FORMAT}/temporal'][1]
+FILE_TEMP_DIST = f'{FILE_TEMP_DIST_BASE}_{DATE_FORMAT}_{BOOST}_{NORM}.json'
 
 groups, topics, counts = read_temp_dist(FILE_TEMP_DIST)
 annotations = read_supertopics(FILE_SUPERTOPICS)
@@ -39,12 +41,14 @@ for st in SuperTopic:
     # number of tweets per day (only including topics belonging to supertopic)
     t_counts = counts.T[annotations[:, st] > 0].sum(axis=0)
     supertopic_counts.append(t_counts)
+    print(st, f'{t_counts.sum():,}')
 supertopic_counts = np.array(supertopic_counts)
 supertopic_counts_smooth = smooth(supertopic_counts)
 totals_daily = supertopic_counts.sum(axis=0)
 totals_daily_smooth = smooth(totals_daily)
 totals_topics = supertopic_counts.sum(axis=1)
 
+print('total (incl boost):', supertopic_counts.sum())
 print('counts', counts.shape)
 print('annos', annotations.shape)
 print('st counts', supertopic_counts.shape)
@@ -54,8 +58,8 @@ labels = [st.name for st in sts_plot]
 xticks = []
 xticklabels = []
 for i, x in enumerate(groups):
-    s = re.search('[0-9]{4}-([0-9]{2})-([0-9]{2})', x)
-    if (int(s.group(1) - 1) % 3 == 0 and int(s.group(2)) == 1):
+    s = re.search(r'\d{4}-(\d{2})-(\d{2})', x)
+    if int(s.group(1)) % 3 == 0 and int(s.group(2)) == 1:
         xticks.append(i)
         xticklabels.append(x)
 
@@ -329,7 +333,7 @@ ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
 plt.show()
 
-bound = groups.index('2020-02-01')
+bound = groups.index('2020-01-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
 for i, st in enumerate(sts_plot, start=1):
     ax = plt.subplot(len(sts_plot), 1, i)

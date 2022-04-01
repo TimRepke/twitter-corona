@@ -62,7 +62,7 @@ class Config:
 
     # https://gitlab.pik-potsdam.de/hpc-documentation/cluster-documentation/-/blob/master/Cluster%20User%20Guide.md#basic-concepts
     # https://gitlab.pik-potsdam.de/hpc-documentation/cluster-documentation/-/blob/master/Cluster%20User%20Guide.md#requesting-a-gpu-node
-    partition: Literal['standard', 'gpu', 'largemem', 'io'] = 'standard'
+    partition: Literal['standard', 'gpu', 'largemem', 'io', 'ram'] = 'standard'
     gpu_type: Optional[Literal['v100', 'k40m']] = 'v100'  # NVidia Tesla K40m or Tesla V100
     n_gpus: Optional[Literal[1, 2]] = 1
     n_cpus: Optional[int] = 1
