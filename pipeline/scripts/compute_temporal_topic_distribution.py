@@ -19,7 +19,7 @@ SET = [
 ][3]
 
 TWEETS_FILE = [f'data/{DATASET}/tweets_filtered_7000000.jsonl',
-               f'data/{DATASET}/tweets_filtered_15000001.jsonl'
+               f'data/{DATASET}/tweets_filtered_15000000.jsonl'
                ][SET[0]]
 
 LABELS_FILE = [f'{SOURCE_DIR}/labels_7000000_tsne.npy',  # 0
@@ -47,11 +47,14 @@ for DATE_FORMAT in ['daily', 'weekly', 'monthly']:
     TARGET_DIR = f'{TARGET_BASE}/{DATE_FORMAT}'
     os.makedirs(TARGET_DIR, exist_ok=True)
 
-    print('Loading labels...')
+    print(f'Loading labels from "{LABELS_FILE}"...')
     labels = np.load(LABELS_FILE)
-    topic_ids = np.unique(labels, return_counts=False)
+    topic_ids, topic_counts = np.unique(labels, return_counts=True)
+    for ti, tc in zip(topic_ids, topic_counts):
+        print(f'{ti}: {tc:,} ({tc/topic_counts.sum():2%})')
+    print('num topics:', len(topic_ids))
 
-    print('Reading and counting tweets per topic per time group...')
+    print(f'Reading and counting tweets per topic per time group from "{TWEETS_FILE}"...')
     groups = {}
     for tweet, topic in tqdm(zip(tweets(), labels)):
         group = date2group(tweet['created_at'], DATE_FORMAT)
