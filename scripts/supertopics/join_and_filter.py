@@ -51,21 +51,21 @@ with open(FILE_TWEETS, 'r') as f_tweets, open(TARGET_FILE, 'w') as f_out:
 
         if tweet_id in DATA.index:
             data = DATA.loc[tweet_id]
-            tweet['t_km'] = data.km  # topic label (keep old labels, new with majority vote)
-            tweet['t_kp'] = data.kp  # topic label (keep old labels, new with proximity vote)
-            tweet['t_fm'] = data.fm  # topic label (drop old labels, new with majority vote)
-            tweet['t_fp'] = data.fp  # topic label (drop old labels, new with proximity vote)
+            tweet['t_km'] = int(data.km)  # topic label (keep old labels, new with majority vote)
+            tweet['t_kp'] = int(data.kp)  # topic label (keep old labels, new with proximity vote)
+            tweet['t_fm'] = int(data.fm)  # topic label (drop old labels, new with majority vote)
+            tweet['t_fp'] = int(data.fp)  # topic label (drop old labels, new with proximity vote)
             # SuperTopic Annotations (based on t_km)
-            tweet['st_int'] = data[SuperTopic.Interesting.name]
-            tweet['st_nr'] = data[SuperTopic.NotRelevant.name]
-            tweet['st_cov'] = data[SuperTopic.COVID.name]
-            tweet['st_pol'] = data[SuperTopic.POLITICS.name]
-            tweet['st_mov'] = data[SuperTopic.Movements.name]
-            tweet['st_imp'] = data[SuperTopic.Impacts.name]
-            tweet['st_cau'] = data[SuperTopic.Causes.name]
-            tweet['st_sol'] = data[SuperTopic.Solutions.name]
-            tweet['st_con'] = data[SuperTopic.Contrarian.name]
-            tweet['st_oth'] = data[SuperTopic.Other.name]
+            tweet['st_int'] = int(data[SuperTopic.Interesting.name])
+            tweet['st_nr'] = int(data[SuperTopic.NotRelevant.name])
+            tweet['st_cov'] = int(data[SuperTopic.COVID.name])
+            tweet['st_pol'] = int(data[SuperTopic.POLITICS.name])
+            tweet['st_mov'] = int(data[SuperTopic.Movements.name])
+            tweet['st_imp'] = int(data[SuperTopic.Impacts.name])
+            tweet['st_cau'] = int(data[SuperTopic.Causes.name])
+            tweet['st_sol'] = int(data[SuperTopic.Solutions.name])
+            tweet['st_con'] = int(data[SuperTopic.Contrarian.name])
+            tweet['st_oth'] = int(data[SuperTopic.Other.name])
             # x,y placement on landscape
             tweet['x'] = data.x
             tweet['y'] = data.y
