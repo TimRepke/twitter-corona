@@ -22,9 +22,9 @@ SMOOTHING = 30
 FILE_SUPERTOPICS = f'data/{DATASET}/topics_big2/supertopics.csv'
 FILE_TEMP_DIST_BASE = [f'data/{DATASET}/topics_big2/temporal_sampled/{DATE_FORMAT}/temporal_{LIMIT}',  # 0
                        f'data/{DATASET}/topics_big2/temporal_fresh_majority/{DATE_FORMAT}/temporal',  # 1
-                       f'data/{DATASET}/topics_big2/temporal_fresh_proximity/{DATE_FORMAT}/temporal',  # 2
+                       # f'data/{DATASET}/topics_big2/temporal_fresh_proximity/{DATE_FORMAT}/temporal',  # 2
                        f'data/{DATASET}/topics_big2/temporal_keep_majority/{DATE_FORMAT}/temporal',  # 3
-                       f'data/{DATASET}/topics_big2/temporal_keep_proximity/{DATE_FORMAT}/temporal'  # 4
+                       # f'data/{DATASET}/topics_big2/temporal_keep_proximity/{DATE_FORMAT}/temporal'  # 4
                        ]
 
 
@@ -76,9 +76,16 @@ for boost in BOOST:
             ax.axvline(bound, color='black', lw=2, alpha=0.5)
             # plot the data
             x = np.arange(0, len(groups))
-            y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=30).reshape(-1, )
+            y = smooth([supertopic_counts[st] ], kernel_size=7).reshape(-1, )
+
+            # ax.set_ylabel('Proportion of topic tweets')
+            # y = smooth([supertopic_counts[st] / supertopic_counts[st].sum()], kernel_size=30).reshape(-1, )
+
+            # ax.set_ylabel('Proportion from mean')
+            # y = smooth([supertopic_counts[st] / supertopic_counts[st].mean()], kernel_size=7).reshape(-1, )
+
             ax.plot(x, y, color='black')
-            ax.set_ylabel('Proportion from mean')
+
             # plot the mean line (=1)
             threshold = y.mean()
             ax.axhline(threshold, color='black', lw=2, alpha=0.5)
@@ -91,6 +98,7 @@ for boost in BOOST:
             ax.axvline(bound)
             ax.set_xticks(xticks)
             ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
+            # ax.set_yscale('symlog')
 
             ax2 = ax.twinx()
             y = supertopic_counts[st] / supertopic_counts.sum(axis=0)

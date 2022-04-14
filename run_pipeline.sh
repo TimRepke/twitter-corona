@@ -28,12 +28,21 @@ python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pi
 
 python pipeline/04_04_01_embed_remaining_tweets.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
                                     --cluster-ram=45G --cluster-time=4:00:00 --python-unbuffered \
-                                    --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl
+                                    --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl \
                                     --file-out=extended_tweets.npy
 
 python pipeline/04_04_02_join_remaining_tweets_batch.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
-                                    --cluster-ram=50G --cluster-time=5-20:00:00 --cluster-n-cpus=5 --python-unbuffered \
+                                    --cluster-ram=60G --cluster-time=8:00:00 --cluster-n-cpus=10 --python-unbuffered \
                                     --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl \
                                     --file-emb-sample=tweets_embeddings_7000000_True_minilm.npy \
                                     --file-emb-rest=extended_tweets.npy --file-labels=topics/labels_7000000_tsne.npy \
-                                    --n-neighbours=20 --target-folder=topics/full_batched/ --file-index-cache=topics/index.pkl
+                                    --n-neighbours=30 --target-folder=topics/full_batched/ \
+                                    --metric=ip --m=20 --efc=300 --efq=100
+
+python pipeline/04_04_03_join_landscape.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                    --cluster-ram=60G --cluster-time=8:00:00 --cluster-n-cpus=10 --python-unbuffered \
+                                    --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl \
+                                    --file-emb-sample=tweets_embeddings_7000000_True_minilm.npy \
+                                    --file-emb-rest=extended_tweets.npy --file-tsne-sampled=topics/layout_7000000_tsne.npy \
+                                    --n-neighbours=10 --target-file=topics/tsne_full.csv --index-dir=topics/full_batched/ \
+                                    --metric=ip --m=20 --efc=250 --efq=100

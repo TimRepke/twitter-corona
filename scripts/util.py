@@ -24,7 +24,7 @@ def read_temp_dist(filename) -> tuple[list[str], list[int], np.ndarray]:
     with open(filename) as f:
         data = json.load(f)
 
-    return data['groups'], data['topics'], np.array(data['distribution'])
+    return data['groups'], data.get('topics', []), np.array(data['distribution'])
 
 
 def read_supertopics(filename):
@@ -43,3 +43,14 @@ def get_spottopics(distributions: np.ndarray, threshold: float, min_size: int):
     th = (distributions.max(axis=0) / distributions.sum(axis=0)) > threshold
     ms = distributions.sum(axis=0) > min_size
     return np.argwhere(np.all([th, ms], axis=0))
+
+
+def smooth(array, kernel_size, with_pad=True):
+    kernel = np.ones(kernel_size) / kernel_size
+
+    if with_pad:
+        padded = [np.pad(row, kernel_size // 2, mode='edge') for row in array]
+        smoothed = [np.convolve(row, kernel, mode='same') for row in padded]
+        return np.array(smoothed).T[kernel_size // 2:-kernel_size // 2].T
+
+    return np.array([np.convolve(row, kernel, mode='valid') for row in array])

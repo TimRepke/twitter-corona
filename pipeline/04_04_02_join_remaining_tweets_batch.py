@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 import numpy as np
 from utils.cluster import ClusterJobBaseArguments
 
@@ -12,13 +12,16 @@ class TweetExtendArgs(ClusterJobBaseArguments):
     file_emb_sample: Optional[str] = None
     file_emb_rest: Optional[str] = None
     file_labels: Optional[str] = None
-    file_index_cache: Optional[str] = None
 
     target_folder: Optional[str] = None  # The path to write outputs to
 
     dataset: Optional[str] = 'climate2'  # Name of the dataset
 
     n_neighbours: int = 20
+    metric: Literal['cosine', 'l2', 'ip'] = 'cosine'
+    m: int = 16  # HNSW M for constriction
+    efc: int = 200  # HNSW ef for construction
+    efq: int = 200  # HNSW ef for query
 
     cluster_jobname: str = 'twitter-expand-join-batched'
     cluster_workdir: str = 'twitter'
@@ -27,27 +30,34 @@ class TweetExtendArgs(ClusterJobBaseArguments):
 class MajorityIndex:
     def __init__(self,
                  labels: np.ndarray, embeddings: np.ndarray, cache_location: PathLike,
-                 n_neighbours: int, n_threads: int):
+                 n_neighbours: int, n_threads: int, metric: Literal['cosine', 'l2'],
+                 efc: int, efq: int, m: int):
         self.labels = labels
         self.n_neighbours = n_neighbours
         self.n_threads = n_threads
+        self.metric = metric
+        self.m = m
+        self.efq = efq
+        self.efc = efc
 
-        if os.path.exists(cache_location):
+        cache_file = os.path.join(cache_location, f'index_{metric}_{m}_{efc}.pkl')
+
+        if os.path.exists(cache_file):
             print(f'(loading existing index from disk {cache_location})')
-            with open(cache_location, 'rb') as f:
+            with open(cache_file, 'rb') as f:
                 self.index = pickle.load(f)
         else:
             self.index = self._build_index(labels, embeddings)
-            with open(cache_location, 'wb') as f:
+            with open(cache_file, 'wb') as f:
                 pickle.dump(self.index, f)
 
-        self.index.set_ef(self.n_neighbours ** 2)  # ef should always be > k
+        self.index.set_ef(self.efq)  # ef should always be > k
 
     def _build_index(self, labels, embeddings):
         ids = np.arange(len(labels))
-        index = hnswlib.Index(space='cosine', dim=embeddings.shape[1])
+        index = hnswlib.Index(space=self.metric, dim=embeddings.shape[1])
         index.set_num_threads(self.n_threads)
-        index.init_index(max_elements=len(labels), ef_construction=200, M=16)
+        index.init_index(max_elements=len(labels), ef_construction=self.efc, M=self.m)
         index.add_items(embeddings, ids, num_threads=self.n_threads)
         return index
 
@@ -79,7 +89,7 @@ class MajorityIndex:
                 labels.append(self.get_majority_label(embedding))
             except RuntimeError:
                 print('Failed to find neighbours')
-                labels.append(0)
+                labels.append(-1)
         return np.array(labels)
 
     def get_majority_label(self, embedding: np.ndarray) -> np.ndarray:
@@ -88,17 +98,22 @@ class MajorityIndex:
 
 
 class ProximityIndex:
-    def __init__(self, labels: np.ndarray, embeddings: np.ndarray, n_jobs: int):
+    def __init__(self, labels: np.ndarray, embeddings: np.ndarray, n_jobs: int, metric: Literal['cosine', 'l2', 'ip']):
         self.topics = np.unique(labels)[1:]  # with this method, outliers are not allowed
         self.centroids = np.array([np.mean(embeddings[labels == topic_i], axis=0) for topic_i in self.topics])
         self.n_jobs = n_jobs
+        self.metric = {
+            'l2': 'euclidean',
+            'cosine': 'cosine',
+            'ip': 'euclidean'  # ip doesn't exist in sklearn, fallback to euclid
+        }[metric]
 
     def get_closest(self, embedding: np.ndarray):
         distances = np.array([cosine(embedding, centroid) for centroid in self.centroids])
         return self.topics[distances.argmax()]
 
     def get_closest_bulk(self, embeddings: np.ndarray):
-        return pairwise_distances(embeddings, self.centroids, metric='cosine', n_jobs=self.n_jobs).argmax(axis=1)
+        return pairwise_distances(embeddings, self.centroids, metric=self.metric, n_jobs=self.n_jobs).argmax(axis=1)
 
 
 def read_known_tweet_ids(source_sampled: PathLike):
@@ -106,16 +121,25 @@ def read_known_tweet_ids(source_sampled: PathLike):
         return [int(json.loads(line)['id']) for line in f_sampled]
 
 
+def parse_json_line(line):
+    t = json.loads(line)
+    return int(t['id']), t['created_at'][:10]
+
+
 def assign_topics(file_sampled: PathLike,
                   file_full: PathLike,
                   file_emb_sample: PathLike,
                   file_emb_rest: PathLike,
                   file_labels: PathLike,
-                  file_index_cache: PathLike,
                   target_folder: str,
                   n_neighbours: int,
-                  n_threads: int):
-    exit_if_exists(target_folder)
+                  n_threads: int,
+                  metric: Literal['cosine', 'l2'],
+                  efc: int,
+                  efq: int,
+                  m: int):
+    exit_if_exists(os.path.join(target_folder, f'labels.csv'))
+    os.makedirs(target_folder, exist_ok=True)
 
     print('Reading ids of already assigned tweets...')
     existing_ids = np.array(read_known_tweet_ids(file_sampled))
@@ -131,63 +155,47 @@ def assign_topics(file_sampled: PathLike,
         new_embeddings = np.load(f)
     new_ids_map = {idx: i for i, idx in enumerate(new_ids)}
 
+    def get_emb_by_id(tid):
+        if tid in existing_ids_map:
+            return existing_embeddings[existing_ids_map[tid]]
+        return new_embeddings[new_ids_map[tid]]
+
     print('Building majority vote index...')
-    majority_index = MajorityIndex(labels=existing_labels, embeddings=existing_embeddings,
-                                   n_neighbours=n_neighbours, n_threads=n_threads, cache_location=file_index_cache)
+    majority_index = MajorityIndex(labels=existing_labels, embeddings=existing_embeddings, metric=metric,
+                                   n_neighbours=n_neighbours, n_threads=n_threads, cache_location=target_folder,
+                                   efc=efc, efq=efq, m=m)
     print('Building closest centroid index...')
-    proximity_index = ProximityIndex(labels=existing_labels, embeddings=existing_embeddings, n_jobs=n_threads)
+    proximity_index = ProximityIndex(labels=existing_labels, embeddings=existing_embeddings, n_jobs=n_threads,
+                                     metric=metric, )
 
     print('Prepare batches...')
     with open(file_full, 'r') as f:
-        tweet_ids = [int(json.loads(line)['id']) for line in f]
+        tweets = [parse_json_line(line) for line in f]
 
-    n_batches = 20000
-    batch_size = int(len(tweet_ids) / n_batches) + 1
-    batches = []
-    for batch_i in range(n_batches):
-        s = batch_i * batch_size
-        e = (batch_i + 1) * batch_size
-        batch = tweet_ids[s:e]
-        if len(batch) > 0:
-            batches.append((tweet_ids[s:e], s, e))
-    print(f'Going to process {len(batches)} batches with {batch_size} tweets each.')
+    n_batches = 40000
+    batch_size = int(len(tweets) / n_batches) + 1
+    print(f'Going to process ~{n_batches} batches with {batch_size} tweets each.')
+    with open(os.path.join(target_folder, f'labels.csv'), 'w') as f_out:
+        for batch_i in tqdm(range(n_batches)):
+            start = batch_i * batch_size
+            end = (batch_i + 1) * batch_size
+            batch = tweets[start:end]
+            if len(batch) > 0:
+                embeddings = np.array([get_emb_by_id(t[0]) for t in batch])
 
-    print('Assigning topic labels to tweets...')
-    # labels (for each strategy) where *all* tweets are re-assigned to a topic
-    labels_fresh_majority = []
-    labels_fresh_proximity = []
-    # labels (for each strategy) where only new tweets are assigned to a topic
-    labels_keep_majority = []
-    labels_keep_proximity = []
-    for batch in tqdm(batches):
-        ids, start, end = batch
-        embeddings = np.array([
-            existing_embeddings[existing_ids_map[tweet_id]]
-            if tweet_id in existing_ids_map else
-            new_embeddings[new_ids_map[tweet_id]]
-            for tweet_id in ids])
+                labels_majority = majority_index.get_majority_labels(embeddings)
+                labels_proximity = proximity_index.get_closest_bulk(embeddings)
 
-        labels_majority = majority_index.get_majority_labels(embeddings)
-        labels_proximity = proximity_index.get_closest_bulk(embeddings)
+                for (tweet_id, tweet_day), label_majority, label_proximity in \
+                        zip(batch, labels_majority, labels_proximity):
+                    keep_majority = existing_labels[existing_ids_map[tweet_id]] \
+                        if tweet_id in existing_ids_map else label_majority
+                    keep_proximity = existing_labels[existing_ids_map[tweet_id]] \
+                        if tweet_id in existing_ids_map else label_proximity
 
-        labels_fresh_majority.append(labels_majority)
-        labels_fresh_proximity.append(labels_proximity)
-
-        labels_keep_majority.append(np.array([
-            existing_labels[existing_ids_map[i]] if i in existing_ids_map else l
-            for i, l in zip(ids, labels_majority)
-        ]))
-        labels_keep_proximity.append(np.array([
-            existing_labels[existing_ids_map[i]] if i in existing_ids_map else l
-            for i, l in zip(ids, labels_proximity)
-        ]))
-
-    print('Saving...')
-    os.makedirs(target_folder, exist_ok=True)
-    np.save(os.path.join(target_folder, f'labels_fresh_majority.npy'), np.hstack(labels_fresh_majority))
-    np.save(os.path.join(target_folder, f'labels_fresh_proximity.npy'), np.hstack(labels_fresh_proximity))
-    np.save(os.path.join(target_folder, f'labels_keep_majority.npy'), np.hstack(labels_keep_majority))
-    np.save(os.path.join(target_folder, f'labels_keep_proximity.npy'), np.hstack(labels_keep_proximity))
+                    f_out.write(f'{tweet_id},{tweet_day},'
+                                f'{keep_majority},{keep_proximity},'
+                                f'{label_majority},{label_proximity}\n')
 
 
 if __name__ == '__main__':
@@ -221,8 +229,6 @@ if __name__ == '__main__':
                                                     f'data/{args.dataset}/{args.file_emb_sample}')
         cluster_args.file_emb_rest = os.path.join(s_config.datadir_path, f'data/{args.dataset}/{args.file_emb_rest}')
         cluster_args.file_labels = os.path.join(s_config.datadir_path, f'data/{args.dataset}/{args.file_labels}')
-        cluster_args.file_index_cache = os.path.join(s_config.datadir_path,
-                                                     f'data/{args.dataset}/{args.file_index_cache}')
         cluster_args.target_folder = os.path.join(s_config.datadir_path, f'data/{args.dataset}/{args.target_folder}')
 
         cluster_args.model_cache = s_config.modeldir_path
@@ -242,8 +248,11 @@ if __name__ == '__main__':
             file_labels=args.file_labels,
             file_emb_rest=args.file_emb_rest,
             file_emb_sample=args.file_emb_sample,
-            file_index_cache=args.file_index_cache,
             target_folder=args.target_folder,
             n_threads=args.cluster_n_cpus,
-            n_neighbours=args.n_neighbours
+            n_neighbours=args.n_neighbours,
+            metric=args.metric,
+            efc=args.efc,
+            efq=args.efq,
+            m=args.m
         )

@@ -1,111 +1,105 @@
 from utils.topics.utils import date2group
 import json
 import numpy as np
-from typing import Literal
 import os
 from tqdm import tqdm
+import pandas as pd
 
 DATASET = 'climate2'
-# DATE_FORMAT: Literal['monthly', 'yearly', 'weekly', 'daily'] = 'daily'
 EPS = 1e-12
 
 SOURCE_DIR = f'data/{DATASET}/topics_big2'
-SET = [
-    (0, 0),  # 0
-    (1, 1),  # 1
-    (1, 2),  # 2
-    (1, 3),  # 3
-    (1, 4)  # 4
-][3]
+RELEVANCE_FILE = f'data/{DATASET}/tweets_relevant_True_True_4_5_2018-01_2022-01_True_False_False.txt'
 
-TWEETS_FILE = [f'data/{DATASET}/tweets_filtered_7000000.jsonl',
-               f'data/{DATASET}/tweets_filtered_15000000.jsonl'
-               ][SET[0]]
+FILE_TWEETS_SAMPLED = f'data/{DATASET}/tweets_filtered_7000000.jsonl'
+FILE_LABELS_SAMPLED = f'{SOURCE_DIR}/labels_7000000_tsne.npy'
+FILE_TARGET_SAMPLED = f'{SOURCE_DIR}/temporal_sampled/'
 
-LABELS_FILE = [f'{SOURCE_DIR}/labels_7000000_tsne.npy',  # 0
-               f'{SOURCE_DIR}/full_batched/labels_fresh_majority.npy',  # 1
-               f'{SOURCE_DIR}/full_batched/labels_fresh_proximity.npy',  # 2
-               f'{SOURCE_DIR}/full_batched/labels_keep_majority.npy',  # 3
-               f'{SOURCE_DIR}/full_batched/labels_keep_proximity.npy'  # 4
-               ][SET[1]]
-TARGET_BASE = [f'{SOURCE_DIR}/temporal_sampled/',
-               f'{SOURCE_DIR}/temporal_fresh_majority/',
-               f'{SOURCE_DIR}/temporal_fresh_proximity/',
-               f'{SOURCE_DIR}/temporal_keep_majority/',
-               f'{SOURCE_DIR}/temporal_keep_proximity/'
-               ][SET[1]]
+FILE_TWEETS_FULL = f'data/{DATASET}/tweets_filtered_15000000.jsonl'
+FILE_LABELS_FULL = f'{SOURCE_DIR}/full_batched/labels.csv'
+FILE_TARGETS_FULL = {'fm': f'{SOURCE_DIR}/temporal_fresh_majority/',
+                     'fp': f'{SOURCE_DIR}/temporal_fresh_proximity/',
+                     'km': f'{SOURCE_DIR}/temporal_keep_majority/',
+                     'kp': f'{SOURCE_DIR}/temporal_keep_proximity/'}
 
+print('Reading labels...')
+LABELS_FULL = pd.read_csv(FILE_LABELS_FULL, index_col=0, names=['d', 'km', 'kp', 'fm', 'fp'])
+N_TOPICS = 983
 
-def tweets():
-    with open(TWEETS_FILE) as f_tweets:
-        for line in f_tweets:
-            yield json.loads(line)
+with open(RELEVANCE_FILE) as f:
+    RELEVANT = set(int(line) for line in f)
 
+# ls = np.load(FILE_LABELS_SAMPLED)
+# with open(FILE_TWEETS_SAMPLED) as ft:
+#     LABELS_SAMPLED = {json.loads(line)['id']: label for line, label in zip(ft, ls)}
 
-for DATE_FORMAT in ['daily', 'weekly', 'monthly']:
-    print(f'===== {DATE_FORMAT} ====')
-    TARGET_DIR = f'{TARGET_BASE}/{DATE_FORMAT}'
-    os.makedirs(TARGET_DIR, exist_ok=True)
+aggregate = {'daily': {}, 'monthly': {}}  # , 'weekly': {}}
+COLS = ['km', 'fm']  # , 'fp','kp']
+for src in COLS:
+    for v in aggregate.values():
+        v[src] = {}
 
-    print(f'Loading labels from "{LABELS_FILE}"...')
-    labels = np.load(LABELS_FILE)
-    topic_ids, topic_counts = np.unique(labels, return_counts=True)
-    for ti, tc in zip(topic_ids, topic_counts):
-        print(f'{ti}: {tc:,} ({tc/topic_counts.sum():2%})')
-    print('num topics:', len(topic_ids))
+print('Reading and aggregating all the data...')
+with open(FILE_TWEETS_FULL) as f_tweets:
+    for i, line in tqdm(enumerate(f_tweets), total=len(LABELS_FULL)):
+        if i not in RELEVANT:
+            continue
+        tweet = json.loads(line)
+        tweet_id = int(tweet['id'])
+        for src in COLS:
+            topic = LABELS_FULL.loc[tweet_id][src]
+            if topic < 0:
+                topic = 0
 
-    print(f'Reading and counting tweets per topic per time group from "{TWEETS_FILE}"...')
-    groups = {}
-    for tweet, topic in tqdm(zip(tweets(), labels)):
-        group = date2group(tweet['created_at'], DATE_FORMAT)
+            for date_format in aggregate.keys():
+                group = date2group(tweet['created_at'], date_format)
 
-        if group not in groups:
-            groups[group] = {
-                # 'raw': np.zeros_like(topic_ids),
-                # 'retweets': np.zeros_like(topic_ids),
-                # 'likes': np.zeros_like(topic_ids),
-                # 'replies': np.zeros_like(topic_ids)
-                'raw': np.zeros((983,)),
-                'retweets': np.zeros((983,)),
-                'likes': np.zeros((983,)),
-                'replies': np.zeros((983,))
-            }
+                if group not in aggregate[date_format][src]:
+                    aggregate[date_format][src][group] = {
+                        'raw': np.zeros((N_TOPICS,)),
+                        'retweets': np.zeros((N_TOPICS,)),
+                        'likes': np.zeros((N_TOPICS,)),
+                        'replies': np.zeros((N_TOPICS,))
+                    }
 
-        groups[group]['raw'][topic] += 1
-        groups[group]['retweets'][topic] += tweet.get('retweets_count', 0)
-        groups[group]['likes'][topic] += tweet.get('likes_count', 0)
-        groups[group]['replies'][topic] += tweet.get('replies_count', 0)
+                aggregate[date_format][src][group]['raw'][topic] += 1
+                aggregate[date_format][src][group]['retweets'][topic] += tweet.get('retweets_count', 0)
+                aggregate[date_format][src][group]['likes'][topic] += tweet.get('likes_count', 0)
+                aggregate[date_format][src][group]['replies'][topic] += tweet.get('replies_count', 0)
 
-    print('Rearranging counts into np arrays...')
-    time_groups = sorted(groups.keys())
-    distributions = {
-        'raw': np.array([groups[group]['raw'].tolist() for group in time_groups]),
-        'retweets': np.array([groups[group]['retweets'].tolist() for group in time_groups]),
-        'likes': np.array([groups[group]['likes'].tolist() for group in time_groups]),
-        'replies': np.array([groups[group]['replies'].tolist() for group in time_groups])
-    }
+for src in COLS:
+    for date_format in aggregate.keys():
+        print(f'Rearranging counts into np arrays for {src} and {date_format}...')
+        time_groups = sorted(aggregate[date_format][src].keys())
+        distributions = {
+            'raw': np.array([aggregate[date_format][src][group]['raw'].tolist() for group in time_groups]),
+            'retweets': np.array([aggregate[date_format][src][group]['retweets'].tolist() for group in time_groups]),
+            'likes': np.array([aggregate[date_format][src][group]['likes'].tolist() for group in time_groups]),
+            'replies': np.array([aggregate[date_format][src][group]['replies'].tolist() for group in time_groups])
+        }
 
-    for boost in [[], ['retweets'], ['replies'], ['likes'], ['retweets', 'likes'], ['replies', 'likes'],
-                  ['retweets', 'replies'], ['retweets', 'likes', 'replies']]:
-        boost_prefix = '_'.join(boost or ['raw'])
+        target_dir = os.path.join(FILE_TARGETS_FULL[src], date_format)
+        os.makedirs(target_dir, exist_ok=True)
+        for boost in [[], ['retweets'], ['replies'], ['likes'], ['retweets', 'likes'], ['replies', 'likes'],
+                      ['retweets', 'replies'], ['retweets', 'likes', 'replies']]:
+            boost_prefix = '_'.join(boost or ['raw'])
 
-        distribution = distributions['raw']
-        for b in boost:
-            distribution += distributions[b]
+            distribution = distributions['raw']
+            for b in boost:
+                distribution += distributions[b]
 
-        for norm in ['col', 'row', 'abs']:
-            print(f'Computing temporal distribution for boost: "{boost_prefix}" and normalisation: "{norm}"')
+            for norm in ['abs']:  # 'col', 'row',
+                print(f'Computing temporal distribution for boost: "{boost_prefix}" and normalisation: "{norm}"')
 
-            if norm == 'row':
-                topic_dist = distribution / (distribution.sum(axis=0) + EPS)
-            elif norm == 'col':
-                topic_dist = (distribution.T / (distribution.sum(axis=1) + EPS)).T
-            else:  # norm == 'abs':
-                topic_dist = distribution.copy()
+                if norm == 'abs':
+                    topic_dist = distribution.copy()
+                elif norm == 'row':
+                    topic_dist = distribution / (distribution.sum(axis=0) + EPS)
+                else:  # norm == 'col'
+                    topic_dist = (distribution.T / (distribution.sum(axis=1) + EPS)).T
 
-            with open(f'{TARGET_DIR}/temporal_{DATE_FORMAT}_{boost_prefix}_{norm}.json', 'w') as f_out:
-                f_out.write(json.dumps({
-                    'groups': time_groups,
-                    'topics': topic_ids.tolist(),
-                    'distribution': topic_dist.tolist()
-                }))
+                with open(f'{target_dir}/temporal_{date_format}_{boost_prefix}_{norm}.json', 'w') as f_out:
+                    f_out.write(json.dumps({
+                        'groups': time_groups,
+                        'distribution': topic_dist.tolist()
+                    }))
