@@ -11,7 +11,7 @@ PathLike = Union[str, bytes, os.PathLike]
 
 
 class TweetEmbeddingArgs(ClusterJobBaseArguments):
-    model: Literal['minilm', 'bertopic'] = 'minilm'  # The embedding model to use.
+    model: Literal['minilm', 'bertweet'] = 'minilm'  # The embedding model to use.
     model_cache: str = 'data/models/'  # Location for cached models.
     file_in: Optional[str] = None  # The file to read data from (relative to source root)
     file_out: Optional[str] = None  # The file to write embeddings to (relative to source root)

@@ -26,16 +26,6 @@ python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pi
                                        --python-unbuffered --cluster-time=10:00:00 --cluster-ram=40G --limit=7000000 \
                                        --batch-size=10000 --excl-hashtags
 
-# geoengineering tweets
-python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
-                                       --python-unbuffered --cluster-time=20:00:00 --cluster-ram=40G \
-                                       --batch-size=10000 --excl-hashtags --dataset=geoengineering --nrc \
-                                       --file-in=data/geoengineering/tweets_clean.jsonl \
-                                       --file-out=data/geoengineering/tweets_classified.jsonl \
-                                       --models cardiff-sentiment cardiff-emotion cardiff-offensive \
-                                                cardiff-stance-climate geomotions-orig geomotions-ekman \
-                                                bertweet-sentiment bertweet-emotions
-
 python pipeline/04_04_01_embed_remaining_tweets.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
                                     --cluster-ram=45G --cluster-time=4:00:00 --python-unbuffered \
                                     --file-sampled=tweets_filtered_7000000.jsonl --file-full=tweets_filtered_15000000.jsonl \
@@ -56,3 +46,21 @@ python pipeline/04_04_03_join_landscape.py --mode=cluster --cluster-mail=timrepk
                                     --file-emb-rest=extended_tweets.npy --file-tsne-sampled=topics/layout_7000000_tsne.npy \
                                     --n-neighbours=10 --target-file=topics/tsne_full.csv --index-dir=topics/full_batched/ \
                                     --metric=ip --m=20 --efc=250 --efq=100
+
+# ====================================================
+# GeoEngineering Tweets
+# ====================================================
+python pipeline/03_01_embed_data.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                    --cluster-ram=45G --cluster-time=4:00:00 --python-unbuffered \
+                                    --dataset=geoengineering --model=minilm \
+                                    --file-in=data/geoengineering/tweets_clean.jsonl \
+                                    --file-out=data/geoengineering/tweet_embeddings_minilm.npy
+
+python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                       --python-unbuffered --cluster-time=20:00:00 --cluster-ram=40G \
+                                       --batch-size=10000 --excl-hashtags --dataset=geoengineering --nrc \
+                                       --file-in=data/geoengineering/tweets_clean.jsonl \
+                                       --file-out=data/geoengineering/tweets_classified.jsonl \
+                                       --models cardiff-sentiment cardiff-emotion cardiff-offensive \
+                                                cardiff-stance-climate geomotions-orig geomotions-ekman \
+                                                bertweet-sentiment bertweet-emotions
