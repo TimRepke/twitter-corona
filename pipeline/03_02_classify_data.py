@@ -1,7 +1,6 @@
 import json
 import os
 from typing import Optional, Union, Literal
-import numpy as np
 from utils.models import ModelCache, ClassifierLiteral, SentenceTransformerBackend, AutoModelBackend
 from utils.cluster import ClusterJobBaseArguments
 from utils.io import exit_if_exists, batched_lines
@@ -17,6 +16,7 @@ class TweetClassifierArgs(ClusterJobBaseArguments):
     models: list[ClassifierLiteral] = ['cards', 'cardiff-sentiment', 'cardiff-emotion', 'cardiff-offensive',
                                        'cardiff-stance-climate', 'geomotions-orig', 'geomotions-ekman',
                                        'bertweet-sentiment', 'bertweet-emotions']
+    nrc: bool = False  # set this flag to include NRC
     model_cache: str = 'data/models/'  # Location for cached models.
     file_in: Optional[str] = None  # The file to read data from (relative to source root)
     file_out: Optional[str] = None  # The file to write embeddings to (relative to source root)
@@ -47,6 +47,7 @@ def line2txt_clean(tweet):
 def classify_tweets(source_f: PathLike,
                     target_f: PathLike,
                     models: list[str],
+                    nrc: bool,
                     model_cache: ModelCache,
                     batch_size: int,
                     include_hashtags: bool = True):
@@ -71,8 +72,15 @@ def classify_tweets(source_f: PathLike,
                 secs = time.time() - start
                 print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
+            if nrc:
+                nrc_results = [NRCLex(t) for t in texts]
+                nrc_results = [{emo: score for emo, score in r.affect_frequencies.items() if score > 0}
+                               for r in nrc_results]
+
             for i, tweet in enumerate(tweets_batch):
                 tweet['classes'] = {model_name: results[model_name][i] for model_name in models}
+                if nrc:
+                    tweet['classes']['nrc'] = nrc_results[i]
                 f_out.write(json.dumps(tweet) + '\n')
                 f_out.flush()
 
@@ -80,6 +88,7 @@ def classify_tweets(source_f: PathLike,
             del model
             del tweets_batch
             del texts
+            del nrc_results
             gc.collect()
 
 
@@ -124,11 +133,13 @@ if __name__ == '__main__':
         cluster_args.model_cache = s_config.modeldir_path
         s_job.submit_job(main_script='pipeline/03_02_classify_data.py', params=cluster_args)
     else:
+        from nrclex import NRCLex
+
         print('Initialising model cache')
         _model_cache = ModelCache(args.model_cache)
 
         print(f'Testing if output file exists already at {file_out}')
-        #exit_if_exists(file_out)
+        # exit_if_exists(file_out)
 
         print('Running classifications...')
         classify_tweets(source_f=file_in,
@@ -136,4 +147,5 @@ if __name__ == '__main__':
                         models=args.models,
                         model_cache=_model_cache,
                         include_hashtags=_include_hashtags,
-                        batch_size=args.batch_size)
+                        batch_size=args.batch_size,
+                        nrc=args.nrc)

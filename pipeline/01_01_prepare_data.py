@@ -1,9 +1,17 @@
 import json
 from typing import Optional
-
+from tap import Tap
 from utils.io import exit_if_exists, produce_batches
 from utils.tweets import clean_tweet, get_hashtags, get_mentions, get_urls
 from tqdm import tqdm
+
+
+class DataPrepArgs(Tap):
+    dataset: str = 'geoengineering'
+    batch_size: int = 20000
+    skip_lines: int = 0
+    source: str
+    target: str
 
 
 def process_tweet(tweet):
@@ -51,7 +59,11 @@ def prepare_dataset(dataset: str,
 
 
 if __name__ == '__main__':
+    args = DataPrepArgs().parse_args()
     prepare_dataset(
-        dataset='climate2',  # 'geoengineering'
-        batch_size=200000
+        dataset=args.dataset,
+        batch_size=args.batch_size,
+        source_f=args.source,
+        target_f=args.target,
+        skip_first_n_lines=args.skip_lines
     )

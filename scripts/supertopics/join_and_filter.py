@@ -51,6 +51,7 @@ with open(FILE_TWEETS, 'r') as f_tweets, open(TARGET_FILE, 'w') as f_out:
 
         if tweet_id in DATA.index:
             data = DATA.loc[tweet_id]
+            # majority votes are -1 if no neighbours could be found (https://github.com/nmslib/hnswlib/issues/373)
             tweet['t_km'] = int(data.km)  # topic label (keep old labels, new with majority vote)
             tweet['t_kp'] = int(data.kp)  # topic label (keep old labels, new with proximity vote)
             tweet['t_fm'] = int(data.fm)  # topic label (drop old labels, new with majority vote)
