@@ -26,7 +26,7 @@ Use `INCLUDE_HASHTAGS` if they should be part of the document embedding, otherwi
 The second one is required to run the sentiment tasks, and optional for the landscape task.
 In both cases, you need to fit the `LIMIT` parameter to what you had before.
 
-### Output taks
+### Output tasks
 They are independent of one another. All require 00, 01, 02 to run first. Some have 03 requirements as stated.
 
 #### `04_01_landscape.py`

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #img {
+            width: 1000px;
+            height: 1000px;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #canvas {
+            width: 1000px;
+            height: 1000px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 1px solid black;
+        }
+
+        .log {
+            position: absolute;
+            width: 400px;
+            top: 10px;
+            right: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+<img src="myplot.png" id="img" alt="scatterplot"/>
+<svg id="canvas">
+    <g>
+        <circle r="2" cx="124" cy="119" fill="red"/>
+        <circle r="2" cx="124" cy="889" fill="blue"/>
+        <circle r="2" cx="899" cy="119" fill="green"/>
+        <circle r="2" cx="899" cy="889" fill="purple"/>
+    </g>
+</svg>
+<div class="log">
+    <button id="newPath">+</button>
+    <p>
+        Note: Do not zoom or scroll!
+        Check that the red, green, purple, blue dots (clockwise, starting top left) are properly
+        aligned with the corners of the coordinate system.
+        If any of these things is not fulfilled, the computed coordinates will probably be wrong.
+        To finish a path, click the "+" button.
+    </p>
+    <ul id="log">
+    </ul>
+</div>
+<script type="text/javascript">
+    const log = document.getElementById('log');
+    const svg = document.getElementById('canvas');
+    const newPathButton = document.getElementById('newPath');
+
+    const yLimScreen = [119, 889];
+    const xLimScreen = [124, 899];
+    const yLimImg = [-25, 25];
+    const xLimImg = [-30, 30];
+
+    let currentPathScreen = [];
+    let currentPathImg = [];
+    let currentPathGroup = null;
+
+    function convertX(x) {
+        const relPos = (x - xLimScreen[0]) / (xLimScreen[1] - xLimScreen[0]);
+        return (relPos * (Math.abs(xLimImg[0]) + xLimImg[1])) + xLimImg[0];
+    }
+
+    function convertY(y) {
+        const relPos = (y - yLimScreen[0]) / (yLimScreen[1] - yLimScreen[0]);
+        return (-1) * ((relPos * (Math.abs(yLimImg[0]) + yLimImg[1])) + yLimImg[0]);
+    }
+
+    function getLine(x1, y1, x2, y2) {
+        const elem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        elem.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        elem.setAttribute('x1', x1);
+        elem.setAttribute('y1', y1);
+        elem.setAttribute('x2', x2);
+        elem.setAttribute('y2', y2);
+        elem.setAttribute('stroke', 'red');
+        return elem;
+    }
+
+    function getPath(pathScreen) {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+        if (pathScreen.length >= 2) {
+            for (let i = 0; i < pathScreen.length - 1; i++) {
+                const line = getLine(pathScreen[i][0], pathScreen[i][1], pathScreen[i + 1][0], pathScreen[i + 1][1]);
+                group.appendChild(line);
+            }
+        }
+        if (pathScreen.length > 2) {
+            const line = getLine(pathScreen[0][0], pathScreen[0][1],
+                pathScreen[pathScreen.length - 1][0], pathScreen[pathScreen.length - 1][1]);
+            group.appendChild(line);
+        }
+        return group;
+    }
+
+    svg.addEventListener('click', (event) => {
+        console.log(event.clientX, event.clientY, convertX(event.clientX), convertY(event.clientY));
+        currentPathImg.push([convertX(event.clientX), convertY(event.clientY)]);
+        currentPathScreen.push([event.clientX, event.clientY]);
+        if (currentPathGroup !== null) {
+            currentPathGroup.parentNode.removeChild(currentPathGroup);
+        }
+        currentPathGroup = getPath(currentPathScreen);
+        svg.appendChild(currentPathGroup);
+    });
+
+    newPathButton.addEventListener('click', (event) => {
+        if (currentPathGroup !== null) {
+            const newEntry = document.createElement('li');
+            newEntry.textContent = JSON.stringify(currentPathImg);
+            log.appendChild(newEntry);
+        }
+
+        currentPathScreen = [];
+        currentPathImg = [];
+        currentPathGroup = null;
+    });
+</script>
+</body>
+</html>

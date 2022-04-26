@@ -57,10 +57,26 @@ python pipeline/03_01_embed_data.py --mode=cluster --cluster-mail=timrepke@pik-p
                                     --file-out=data/geoengineering/tweet_embeddings_minilm.npy
 
 python pipeline/03_02_classify_data.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
-                                       --python-unbuffered --cluster-time=20:00:00 --cluster-ram=40G \
-                                       --batch-size=10000 --excl-hashtags --dataset=geoengineering --nrc \
+                                       --python-unbuffered --cluster-time=1-22:00:00 --cluster-ram=55G \
+                                       --batch-size=20000 --excl-hashtags --dataset=geoengineering --nrc \
                                        --file-in=data/geoengineering/tweets_clean.jsonl \
                                        --file-out=data/geoengineering/tweets_classified.jsonl \
                                        --models cardiff-sentiment cardiff-emotion cardiff-offensive \
                                                 cardiff-stance-climate geomotions-orig geomotions-ekman \
                                                 bertweet-sentiment bertweet-emotions
+
+python pipeline/04_01_layout.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                --cluster-ram=60G --cluster-time=4:00:00 --python-unbuffered \
+                                --tsne-n-jobs=12 --cluster-n-cpus=12 --tsne-prefit-size=150000  --tsne-neighbors=auto\
+                                --tsne-prefit-perplexity=300 --tsne-early-exaggeration-iter=500 \
+                                --tsne-early-exaggeration=12 --tsne-perplexity=20 --dataset=geoengineering \
+                                --file-in=data/geoengineering/tweet_embeddings_minilm.npy \
+                                --file-out=data/geoengineering/layout_tsne.npy
+
+python pipeline/04_03_topicmodel.py --mode=cluster --cluster-mail=timrepke@pik-potsdam.de --cluster-user=timrepke \
+                                    --cluster-n-cpus=5 --cluster-ram=40G --python-unbuffered --cluster-time=1:00:00 \
+                                    --file-tweets=data/geoengineering/tweets_clean.jsonl \
+                                    --file-layout=data/geoengineering/layout_tsne.npy \
+                                    --file-labels=data/geoengineering/topics.npy \
+                                    --output-directory=data/geoengineering/topics \
+                                    --dataset=geoengineering

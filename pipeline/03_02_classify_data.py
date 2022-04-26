@@ -73,9 +73,13 @@ def classify_tweets(source_f: PathLike,
                 print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
             if nrc:
+                start = time.time()
+                print(f'[{datetime.now()}] Applying NRC...')
                 nrc_results = [NRCLex(t) for t in texts]
                 nrc_results = [{emo: score for emo, score in r.affect_frequencies.items() if score > 0}
                                for r in nrc_results]
+                secs = time.time() - start
+                print(f'  - Done after {secs // 60:.0f}m {secs % 60:.0f}s')
 
             for i, tweet in enumerate(tweets_batch):
                 tweet['classes'] = {model_name: results[model_name][i] for model_name in models}

@@ -12,3 +12,4 @@ data/
 *.json
 /viewer/layers/
 /scripts/supertopics/aggregated_topics_quarterly_bars_concentration.ipynb
+/scripts/topic_vis/myplot.png

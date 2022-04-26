@@ -174,6 +174,9 @@ if __name__ == '__main__':
         from utils.topics.frankentopic import get_top_mmr, get_top_tfidf
         from utils.topics.utils import simple_topic_listing, get_temporal_distribution, get_tokens, date2group
         import plotly.graph_objects as go
+        import os
+
+        os.makedirs(target_dir, exist_ok=True)
         from colorcet import glasbey
 
         print('Loading layout...')
