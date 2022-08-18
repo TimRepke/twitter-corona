@@ -77,7 +77,7 @@ for st, col in sts_plot:
 
     print('   - fitting')
     kde = KernelDensity(kernel='gaussian', metric='euclidean',
-                        bandwidth=2.0, atol=0.0005, rtol=0.01)
+        bandwidth=2.0, atol=0.0005, rtol=0.01)
     kde.fit(xy_train)
     n_threads = 30
     print('   - scoring')
@@ -101,4 +101,5 @@ for st, col in sts_plot:
         fmt[l] = st.name
     plt.clabel(c, c.levels, fmt=fmt, inline=True, fontsize=10)
 
+plt.savefig('data/climate2/figures/landscape.png')
 plt.show()

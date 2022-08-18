@@ -26,6 +26,7 @@ FILES_TEMP_DIST = {
 }
 DT = ['keep (majority)', 'fresh (majority)'][0]
 FILE_TEMP_DIST = FILES_TEMP_DIST[DT]
+NORM_SUM = ['all', 'relev'][1]
 BOUNDARY = '2020-03-01'
 SMOOTHING = 90
 EPS = 1e-12
@@ -35,9 +36,11 @@ annotations = read_supertopics(FILE_SUPERTOPICS)
 td_groups, td_topics, td_counts = read_temp_dist(FILE_TEMP_DIST)
 supertopic_counts = []
 for st in SuperTopic:
-    t_counts = td_counts.T[annotations[:, st] > 0].sum(axis=0)
-    supertopic_counts.append(t_counts)
-    print(st.name, f'{t_counts.sum():,}')
+    if NORM_SUM == 'all' or st not in [SuperTopic.Interesting, SuperTopic.NotRelevant, SuperTopic.Other]:
+        t_counts = td_counts.T[annotations[:, st] > 0].sum(axis=0)
+        supertopic_counts.append(t_counts)
+        print(st.name, f'{t_counts.sum():,}')
+
 supertopic_counts = np.array(supertopic_counts)
 BOUND = td_groups.index(BOUNDARY)
 sts_plot = [SuperTopic.COVID, SuperTopic.Causes, SuperTopic.Impacts, SuperTopic.Solutions,
@@ -57,25 +60,36 @@ for i, g in enumerate(td_groups):
         xticks.append(i)
         xticklabels.append(g)
 
-for mode in 'abs', 'share':
-    fig = plt.figure(figsize=(10, 20))
-    fig.suptitle(f'{DT} | {BOOST} | {mode}', y=1)
+ylims = {
+    'abs': (0, 3000),
+    'share': (0, 0.2),
+    'self': (0, 0.1)
+}
+
+for mode in 'abs', 'share', 'self':
+    fig = plt.figure(figsize=(8, 20))
+    fig.suptitle(f'{DT} | {BOOST} | {mode} | normed by {NORM_SUM}', y=1)
     for i, st in enumerate(sts_plot, start=1):
         st_distributions = td_counts.T[annotations[:, st] > 0]
         st_daily_counts = st_distributions.sum(axis=0)
+        n_st_tweets = td_counts.T[annotations[:, st] > 0].T
 
         if mode == 'abs':
             y = st_daily_counts
-        else:  # mode=='share'
+        elif mode == 'share':
             y = st_daily_counts / (tweets_per_day + EPS)
+        else:  # mode == 'self'
+            y = st_daily_counts / st_daily_counts.sum()
 
         y_smooth = smooth([y], kernel_size=SMOOTHING, with_pad=True)[0]
         threshold = y.mean()
 
         ax = plt.subplot(len(sts_plot), 1, i)
-        ax.set_title(f'{st.name} ({st_distributions.shape[1]} topics)')
+        ax.set_title(f'{st.name} ({n_st_tweets.shape[1]} topics)')
         ax.set_xticks(xticks)
         ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
+
+        # ax.set_ylim(*ylims[mode])
 
         ax.axhline(threshold, color='black', ls='--', lw=2, alpha=0.5)
         ax.axvline(BOUND, color='black', lw=2, alpha=0.5)
@@ -92,4 +106,5 @@ for mode in 'abs', 'share':
         # axis.set_ylim(np.percentile(y, q=1), np.percentile(y, q=99))
 
     plt.tight_layout()
+    plt.savefig(f'data/climate2/figures/rg_{DT[:4]}_{mode}_{NORM_SUM}.png')
     plt.show()

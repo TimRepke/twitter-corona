@@ -9,6 +9,7 @@ DATASET = 'climate2'
 LIMIT = 7000000
 DATE_FORMAT: DateFormat = 'daily'
 NORM: Literal['abs', 'col', 'row'] = 'abs'
+REGRESSION: Literal['abs', 'rel'] = 'rel'
 BOOST = ['raw',  # 0
          # 'retweets',  # 1
          # 'replies',  # 2
@@ -16,12 +17,12 @@ BOOST = ['raw',  # 0
          # 'retweets_likes',  # 4
          # 'replies_likes',  # 5
          # 'retweets_replies',  # 6
-         'retweets_likes_replies'  # 7
+         # 'retweets_likes_replies'  # 7
          ]
-SMOOTHING = 30
+SMOOTHING = 60
 FILE_SUPERTOPICS = f'data/{DATASET}/topics_big2/supertopics.csv'
-FILE_TEMP_DIST_BASE = [f'data/{DATASET}/topics_big2/temporal_sampled/{DATE_FORMAT}/temporal_{LIMIT}',  # 0
-                       f'data/{DATASET}/topics_big2/temporal_fresh_majority/{DATE_FORMAT}/temporal',  # 1
+FILE_TEMP_DIST_BASE = [# f'data/{DATASET}/topics_big2/temporal_sampled/{DATE_FORMAT}/temporal_{LIMIT}',  # 0
+                       # f'data/{DATASET}/topics_big2/temporal_fresh_majority/{DATE_FORMAT}/temporal',  # 1
                        # f'data/{DATASET}/topics_big2/temporal_fresh_proximity/{DATE_FORMAT}/temporal',  # 2
                        f'data/{DATASET}/topics_big2/temporal_keep_majority/{DATE_FORMAT}/temporal',  # 3
                        # f'data/{DATASET}/topics_big2/temporal_keep_proximity/{DATE_FORMAT}/temporal'  # 4
@@ -68,15 +69,15 @@ for boost in BOOST:
                 xticks.append(i)
                 xticklabels.append(x)
 
-        bound = groups.index('2020-01-01')
-        fig = plt.figure(figsize=(10, 20), dpi=150)
+        bound = groups.index('2020-03-01')
+        fig = plt.figure(figsize=(8, 20), dpi=150)
         for i, st in enumerate(sts_plot, start=1):
             ax = plt.subplot(len(sts_plot), 1, i)
             ax.set_title(st.name)
             ax.axvline(bound, color='black', lw=2, alpha=0.5)
             # plot the data
             x = np.arange(0, len(groups))
-            y = smooth([supertopic_counts[st] ], kernel_size=7).reshape(-1, )
+            y = smooth([supertopic_counts[st]], kernel_size=SMOOTHING).reshape(-1, )
 
             # ax.set_ylabel('Proportion of topic tweets')
             # y = smooth([supertopic_counts[st] / supertopic_counts[st].sum()], kernel_size=30).reshape(-1, )
@@ -101,17 +102,26 @@ for boost in BOOST:
             # ax.set_yscale('symlog')
 
             ax2 = ax.twinx()
-            y = supertopic_counts[st] / supertopic_counts.sum(axis=0)
-            ax2.scatter(x, y, c='orange', s=0.4, marker=',')
-            # plot regression line for period before and after pandemic
-            sns.regplot(x=x[:bound], y=y[:bound], ax=ax2, scatter=False)
-            sns.regplot(x=x[bound:], y=y[bound:], ax=ax2, scatter=False)
-            # set the opacity of confidence interval
-            plt.setp(ax2.collections[1], alpha=0.3)
-            plt.setp(ax2.collections[2], alpha=0.3)
+            y_abs = supertopic_counts[st] / supertopic_counts.sum(axis=0)
+            ax2.scatter(x, y_abs, c='orange', s=0.4, marker=',')
             # exclude extreme values by setting ylim
-            ax2.set_ylim(np.percentile(y, q=1), np.percentile(y, q=99))
+            ax2.set_ylim(np.percentile(y_abs, q=1), np.percentile(y_abs, q=99))
             ax2.set_ylabel('Share of tweets')
+
+            if REGRESSION == 'abs':
+                # plot regression line for period before and after pandemic
+                sns.regplot(x=x[:bound], y=y_abs[:bound], ax=ax2, scatter=False)
+                sns.regplot(x=x[bound:], y=y_abs[bound:], ax=ax2, scatter=False)
+                # set the opacity of confidence interval
+                plt.setp(ax2.collections[1], alpha=0.3)
+                plt.setp(ax2.collections[2], alpha=0.3)
+            else:
+                # plot regression line for period before and after pandemic
+                sns.regplot(x=x[:bound], y=supertopic_counts[st][:bound], ax=ax, scatter=False)
+                sns.regplot(x=x[bound:], y=supertopic_counts[st][bound:], ax=ax, scatter=False)
+                # set the opacity of confidence interval
+                plt.setp(ax.collections[1], alpha=0.3)
+                plt.setp(ax.collections[2], alpha=0.3)
 
         fig.suptitle(base[35:50] + ' | ' + boost, y=1)
         fig.tight_layout()

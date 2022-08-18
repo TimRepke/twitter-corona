@@ -23,11 +23,12 @@ BOOST = ['raw',  # 0
 SMOOTHING = 30
 FILE_SUPERTOPICS = f'data/{DATASET}/topics_big2/supertopics.csv'
 FILE_TEMP_DIST_BASE = [f'data/{DATASET}/topics_big2/temporal_sampled/{DATE_FORMAT}/temporal_{LIMIT}',
-                       f'data/{DATASET}/topics_big2/temporal_full/{DATE_FORMAT}/temporal'][1]
+                       f'data/{DATASET}/topics_big2/temporal_keep_majority/{DATE_FORMAT}/temporal'][1]
 FILE_TEMP_DIST = f'{FILE_TEMP_DIST_BASE}_{DATE_FORMAT}_{BOOST}_{NORM}.json'
 
 groups, topics, counts = read_temp_dist(FILE_TEMP_DIST)
 annotations = read_supertopics(FILE_SUPERTOPICS)
+fi = 0
 
 
 def smooth(array, kernel_size=SMOOTHING):
@@ -70,7 +71,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(smooth(supertopic_counts[sts_plot]).T, label=labels)
@@ -79,7 +82,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(smooth(supertopic_counts / supertopic_counts.sum(axis=0))[sts_plot].T, label=labels)
@@ -88,7 +93,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(smooth(supertopic_counts / supertopic_counts[sts_plot].sum(axis=0))[sts_plot].T, label=labels)
@@ -97,7 +104,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(smooth(supertopic_counts / supertopic_counts.sum(axis=1)[:, None])[sts_plot].T, label=labels)
@@ -106,7 +115,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig = plt.figure(figsize=(10, 20), dpi=150)
 for i, st in enumerate(sts_plot, start=1):
@@ -123,7 +134,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 means = np.mean(supertopic_counts, axis=1)
 pre_post_curves_cum_smooth = []
@@ -159,7 +172,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(pre_post_curves_auc_sum[:, sts_plot], label=labels)
@@ -168,7 +183,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(pre_post_curves_auc_cum[:, sts_plot], label=labels)
@@ -177,7 +194,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot((pre_post_curves_auc_cum / pre_post_curves_auc_cum[-1])[:, sts_plot], label=labels)
@@ -186,7 +205,9 @@ ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot((pre_post_curves_auc_sum / (pre_post_curves_auc_sum.sum(axis=1) + 1e-12)[:, None])[:, sts_plot], label=labels)
@@ -196,7 +217,9 @@ ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 plt.hlines(0, 0, len(groups), colors='black', linestyles='dashed')
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(smooth(supertopic_counts - means[:, None]).T[:, sts_plot], label=labels)
@@ -206,7 +229,9 @@ ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 plt.hlines(0, 0, len(groups), colors='black', linestyles='dashed')
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(((supertopic_counts_smooth - means[:, None]) /
@@ -217,7 +242,9 @@ ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 plt.hlines(0, 0, len(groups), colors='black', linestyles='dashed')
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig, ax = plt.subplots(dpi=150)
 ax.plot(((supertopic_counts_smooth - means[:, None]) /
@@ -228,7 +255,9 @@ ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 ax.legend(bbox_to_anchor=(1.3, 1.05), fontsize=8)
 plt.hlines(0, 0, len(groups), colors='black', linestyles='dashed')
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 fig = plt.figure(figsize=(10, 20), dpi=150)
 for i, st in enumerate(sts_plot, start=1):
@@ -245,7 +274,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 bound = groups.index('2020-02-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
@@ -266,7 +297,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 bound = groups.index('2020-02-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
@@ -288,7 +321,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 bound = groups.index('2020-02-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
@@ -310,7 +345,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 bound = groups.index('2020-02-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
@@ -331,7 +368,9 @@ for i, st in enumerate(sts_plot, start=1):
 ax.set_xticks(xticks)
 ax.set_xticklabels(xticklabels, rotation=90, fontsize=8)
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
 
 bound = groups.index('2020-01-01')
 fig = plt.figure(figsize=(10, 20), dpi=150)
@@ -371,4 +410,6 @@ for i, st in enumerate(sts_plot, start=1):
     ax2.set_ylabel('Share of tweets')
 
 fig.tight_layout()
+plt.savefig(f'data/climate2/figures/temporal_derivative/fig_{fi}.png')
 plt.show()
+fi += 1
