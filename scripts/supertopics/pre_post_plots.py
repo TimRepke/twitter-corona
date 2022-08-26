@@ -72,6 +72,15 @@ for i, (st, counts) in enumerate(pre_post_counts.items()):
     pre_post_counts_np[0][i] = counts[0].sum()
     pre_post_counts_np[1][i] = counts[1].sum()
 
+yearly_counts = {'2018': {}, '2019': {}, '2020': {}, '2021': {}}
+yearly_counts_np = np.zeros((4, len(sts_plot)))
+for i, st in enumerate(sts_plot, start=1):
+    for yi, yr in enumerate(yearly_counts.keys()):
+        st_distributions = td_counts.T[annotations[:, st] > 0]
+        st_daily_counts = st_distributions.sum(axis=0)
+        yearly_counts[yr][st.name] = st_daily_counts[[gi for gi, g in enumerate(td_groups) if g[:4] == yr]]
+        yearly_counts_np[yi][i - 1] = yearly_counts[yr][st.name].sum()
+
 fig = plt.figure(figsize=(6, 12))
 fig.suptitle('Number of tweets/supertopic before & after Mar 2020 (abs)')
 labels = ['pre Mar 2020', 'post Mar 2020']
@@ -94,15 +103,6 @@ plt.legend()
 plt.savefig(f'data/climate2/figures/pre_post/pre_post_normed.png')
 plt.show()
 
-yearly_counts = {'2018': {}, '2019': {}, '2020': {}, '2021': {}}
-yearly_counts_np = np.zeros((4, len(sts_plot)))
-for i, st in enumerate(sts_plot, start=1):
-    for yi, yr in enumerate(yearly_counts.keys()):
-        st_distributions = td_counts.T[annotations[:, st] > 0]
-        st_daily_counts = st_distributions.sum(axis=0)
-        yearly_counts[yr][st.name] = st_daily_counts[[gi for gi, g in enumerate(td_groups) if g[:4] == yr]]
-        yearly_counts_np[yi][i - 1] = yearly_counts[yr][st.name].sum()
-
 fig = plt.figure(figsize=(6, 12))
 fig.suptitle('Number of tweets/supertopic per year (abs)')
 labels = ['2018', '2019', '2020', '2021']
@@ -120,54 +120,61 @@ labels = ['2018', '2019', '2020', '2021']
 bottom = np.zeros((4,))
 for i, st in enumerate(sts_plot):
     plt.bar(labels, yearly_counts_np[:, i] / (yearly_counts_np.sum(axis=1) + EPS),
-        width=0.4, label=st.name, bottom=bottom)
+            width=0.4, label=st.name, bottom=bottom)
     bottom += yearly_counts_np[:, i] / (yearly_counts_np.sum(axis=1) + EPS)
 plt.legend()
 plt.savefig(f'data/climate2/figures/pre_post/yrs_normed.png')
 plt.show()
 
-exit()
+#############################################################################################
+# same, but with numbers
+#############################################################################################
 
-fig = plt.figure(figsize=(8, 20))
-for i, st in enumerate(sts_plot, start=1):
-    st_distributions = td_counts.T[annotations[:, st] > 0]
-    st_daily_counts = st_distributions.sum(axis=0)
-    n_st_tweets = td_counts.T[annotations[:, st] > 0].T
+fig = plt.figure(figsize=(6, 12))
+fig.suptitle('Number of tweets/supertopic before & after Mar 2020 (abs)')
+labels = ['pre Mar 2020', 'post Mar 2020']
+bottom = np.zeros((2,))
+for i, st in enumerate(sts_plot):
+    bar = plt.bar(labels, pre_post_counts_np[:, i], width=0.4, label=st.name, bottom=bottom)
+    plt.bar_label(bar, fmt='%d', padding=0, label_type='center', rotation='horizontal')
+    bottom += pre_post_counts_np[:, i]
+plt.legend()
+plt.savefig(f'data/climate2/figures/pre_post/pre_post_abs_numbers.png')
+plt.show()
 
-    before = st_daily_counts[:BOUND]
-    after = st_daily_counts[BOUND:]
+fig = plt.figure(figsize=(6, 12))
+fig.suptitle('Number of tweets/supertopic before & after Mar 2020 (normed)')
+labels = ['pre Mar 2020', 'post Mar 2020']
+bottom = np.zeros((2,))
+for i, st in enumerate(sts_plot):
+    bar = plt.bar(labels, pre_post_counts_np[:, i] / pre_post_counts_np.sum(axis=1), width=0.4, label=st.name, bottom=bottom)
+    plt.bar_label(bar, fmt='%.2f', padding=0, label_type='center', rotation='horizontal')
+    bottom += pre_post_counts_np[:, i] / pre_post_counts_np.sum(axis=1)
+plt.legend()
+plt.savefig(f'data/climate2/figures/pre_post/pre_post_normed_numbers.png')
+plt.show()
 
-    if mode == 'abs':
-        y = st_daily_counts
-    elif mode == 'share':
-        y = st_daily_counts / (tweets_per_day + EPS)
-    else:  # mode == 'self'
-        y = st_daily_counts / st_daily_counts.sum()
+fig = plt.figure(figsize=(6, 12))
+fig.suptitle('Number of tweets/supertopic per year (abs)')
+labels = ['2018', '2019', '2020', '2021']
+bottom = np.zeros((4,))
+for i, st in enumerate(sts_plot):
+    bar = plt.bar(labels, yearly_counts_np[:, i], width=0.4, label=st.name, bottom=bottom)
+    plt.bar_label(bar, fmt='%d', padding=0, label_type='center', rotation='horizontal')
+    bottom += yearly_counts_np[:, i]
+plt.legend()
+plt.savefig(f'data/climate2/figures/pre_post/yrs_abs_numbers.png')
+plt.show()
 
-    y_smooth = smooth([y], kernel_size=SMOOTHING, with_pad=True)[0]
-    threshold = y.mean()
-
-    ax = plt.subplot(len(sts_plot), 1, i)
-    ax.set_title(f'{st.name} ({n_st_tweets.shape[1]} topics)')
-    ax.set_xticks(xticks)
-    ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
-
-    # ax.set_ylim(*ylims[mode])
-
-    ax.axhline(threshold, color='black', ls='--', lw=2, alpha=0.5)
-    ax.axvline(BOUND, color='black', lw=2, alpha=0.5)
-
-    ax.fill_between(x, threshold, y_smooth, where=y_smooth > threshold, color='green', alpha=0.5)
-    ax.fill_between(x, y_smooth, threshold, where=y_smooth < threshold, color='red', alpha=0.5)
-    ax.plot(x, y_smooth, color='black')
-
-    sns.regplot(x=x[:BOUND], y=y[:BOUND], ax=ax, scatter=False)
-    sns.regplot(x=x[BOUND:], y=y[BOUND:], ax=ax, scatter=False)
-
-    plt.setp(ax.collections[2], alpha=0.5)
-    plt.setp(ax.collections[3], alpha=0.5)
-    # axis.set_ylim(np.percentile(y, q=1), np.percentile(y, q=99))
-
-plt.tight_layout()
-plt.savefig(f'data/climate2/figures/rg_{DT[:4]}_{mode}_{NORM_SUM}.png')
+fig = plt.figure(figsize=(6, 12))
+fig.suptitle('Number of tweets/supertopic per year (normed)')
+labels = ['2018', '2019', '2020', '2021']
+bottom = np.zeros((4,))
+for i, st in enumerate(sts_plot):
+    bar = plt.bar(labels, yearly_counts_np[:, i] / (yearly_counts_np.sum(axis=1) + EPS),
+            width=0.4, label=st.name, bottom=bottom)
+    plt.bar_label(bar, fmt='%.2f', padding=0, label_type='center', rotation='horizontal')
+    bottom += yearly_counts_np[:, i] / (yearly_counts_np.sum(axis=1) + EPS)
+plt.legend()
+plt.savefig(f'data/climate2/figures/pre_post/yrs_normed_numbers.png')
 plt.show()
