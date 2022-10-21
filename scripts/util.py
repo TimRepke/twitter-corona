@@ -11,7 +11,7 @@ class SuperTopic(IntEnum):
     Interesting = 0
     NotRelevant = 1
     COVID = 2
-    POLITICS = 3
+    Politics = 3
     Movements = 4
     Impacts = 5
     Causes = 6

@@ -1,8 +1,11 @@
+import math
+
 from scripts.util import read_supertopics, SuperTopic, get_spottopics, DateFormat, read_temp_dist, smooth
 from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 import re
 import seaborn as sns
 import csv
@@ -49,8 +52,13 @@ for st in SuperTopic:
 supertopic_counts = np.array(supertopic_counts)
 BOUND = td_groups.index(BOUNDARY)
 SHADE_BOUNDS = [td_groups.index(SHADE[0]), td_groups.index(SHADE[1])]
-sts_plot = [SuperTopic.COVID, SuperTopic.Causes, SuperTopic.Impacts, SuperTopic.Solutions,
-            SuperTopic.Politics, SuperTopic.Movements, SuperTopic.Contrarian,
+sts_plot = [SuperTopic.COVID,
+            SuperTopic.Politics,
+            SuperTopic.Causes,
+            SuperTopic.Movements,
+            SuperTopic.Impacts,
+            SuperTopic.Contrarian,
+            SuperTopic.Solutions,
             # SuperTopic.Other,  # SuperTopic.Interesting, SuperTopic.NotRelevant
             ]
 
@@ -58,23 +66,40 @@ tweets_per_day = np.sum(td_counts, axis=1)
 tweets_per_topic = np.sum(td_counts, axis=0)
 
 x = np.arange(len(td_groups))
-xticks = []
-xticklabels = []
-for i, g in enumerate(td_groups):
-    s = g.split('-')
-    if int(s[1]) % 3 == 0 and int(s[2]) == 1:
-        xticks.append(i)
-        xticklabels.append(g)
+xminor = [
+    (td_groups.index('2018-04-01'), None),
+    (td_groups.index('2018-07-01'), '2018'),
+    (td_groups.index('2018-10-01'), None),
+    (td_groups.index('2019-04-01'), None),
+    (td_groups.index('2019-07-01'), '2019'),
+    (td_groups.index('2019-10-01'), None),
+    (td_groups.index('2020-04-01'), None),
+    (td_groups.index('2020-07-01'), '2020'),
+    (td_groups.index('2020-10-01'), None),
+    (td_groups.index('2021-04-01'), None),
+    (td_groups.index('2021-07-01'), '2021'),
+    (td_groups.index('2021-10-01'), None),
+]
+xmajor = [
+    td_groups.index('2018-01-01'),
+    td_groups.index('2019-01-01'),
+    td_groups.index('2020-01-01'),
+    td_groups.index('2021-01-01'),
+    td_groups.index('2021-12-14')
+]
 
 ylims = {
     'abs': (0, 3000),
-    'share': (0, 0.2),
-    'self': (0, 0.003)
+    'share': (0, 20),
+    'self': (0, 0.3)
 }
 
-for y_shared in [True, False]:
-    for mode in 'abs', 'share', 'self':
-        fig = plt.figure(figsize=(8, 20))
+n_cols = 2
+n_rows = math.ceil(len(sts_plot) / n_cols)
+
+for y_shared in [False, True]:
+    for mode in 'share', 'abs', 'self':
+        fig = plt.figure(figsize=(20, 10))
         fig.suptitle(f'{DT} | {BOOST} | {mode} | normed by {NORM_SUM}', y=1)
         for i, st in enumerate(sts_plot, start=1):
             st_distributions = td_counts.T[annotations[:, st] > 0]
@@ -84,17 +109,30 @@ for y_shared in [True, False]:
             if mode == 'abs':
                 y = st_daily_counts
             elif mode == 'share':
-                y = st_daily_counts / (tweets_per_day + EPS)
+                y = (st_daily_counts / (tweets_per_day + EPS)) * 100
             else:  # mode == 'self'
-                y = st_daily_counts / st_daily_counts.sum()
+                y = (st_daily_counts / st_daily_counts.sum()) * 100
 
             y_smooth = smooth([y], kernel_size=SMOOTHING, with_pad=True)[0]
             threshold = y.mean()
 
-            ax = plt.subplot(len(sts_plot), 1, i)
-            ax.set_title(f'{st.name} ({n_st_tweets.shape[1]} topics)')
-            ax.set_xticks(xticks)
-            ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
+            ax = plt.subplot(n_rows, n_cols, i)
+            ax.set_title(f'{st.name} ({n_st_tweets.shape[1]} topics)',
+                         fontdict={'fontsize': 22})
+            ax.set_xticks([tick for tick, _ in xminor], minor=True)
+            ax.set_xticks(xmajor, minor=False)
+            ax.set_xticklabels([], minor=False)
+            ax.tick_params(axis='x', which='major', length=8, width=1.5)
+            ax.tick_params(axis='x', which='minor', labelsize=22)
+            ax.tick_params(axis='y', labelsize=22, length=5, width=2)
+            ax.margins(x=0)
+            ax.ticklabel_format(axis='y', style='plain', useOffset=False)
+            ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))
+            if st == SuperTopic.Solutions or st == SuperTopic.Contrarian:
+                ax.set_xticklabels([label for _, label in xminor], minor=True)
+                # ax.set_xticklabels([tl[:7] for tl in xticklabels], rotation=45, fontsize=8)
+            else:
+                ax.set_xticklabels([])
 
             if y_shared:
                 ax.set_ylim(*ylims[mode])
@@ -123,5 +161,7 @@ for y_shared in [True, False]:
 
         plt.tight_layout()
 
-        plt.savefig(f'data/climate2/figures/rg_{DT[:4]}_{mode}_{NORM_SUM}{y_share_tag}.png')
+        plt.savefig(f'data/climate2/figures/rg_{DT[:4]}_{mode}_{NORM_SUM}{y_share_tag}_2c.png')
         plt.show()
+    #     break
+    # break

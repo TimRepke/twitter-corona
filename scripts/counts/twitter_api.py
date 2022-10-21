@@ -4,15 +4,15 @@ import logging
 from searchtweets import ResultStream
 
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(name)s: %(message)s', level=logging.DEBUG)
-NAME = 'cc'
+NAME = 'cc_Jan2017_Sept2022'
 QUERY = '"climate change" lang:en -is:retweet -is:quote'
 
 stream = ResultStream(
     endpoint='https://api.twitter.com/2/tweets/counts/all',
     request_parameters={
         'query': QUERY,
-        'start_time': '2007-01-01T00:00:00Z',
-        'end_time': '2021-12-31T23:59:59Z',
+        'start_time': '2017-01-01T00:00:00Z',
+        'end_time': '2022-10-10T23:59:59Z',
         'granularity': 'day'
     },
     bearer_token=os.getenv("TWITTER"),
